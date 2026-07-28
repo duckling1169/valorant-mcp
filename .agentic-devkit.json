@@ -1,0 +1,65 @@
+{
+  "files": {
+    ".github/pull_request_template.md": {
+      "module": "software-project",
+      "source_sha256": "5c1a5d39d61259f3543cb46edb23fbf0ed9734dfd2065218ad78e0b57dbb517e",
+      "template": "templates/software-project/.github/pull_request_template.md"
+    },
+    "AGENTS.md": {
+      "module": "software-project",
+      "source_sha256": "21efb93bd7fe7c8a2e9fe3ca6d7c007984132c6c60e32596a69d8d9e64900ba1",
+      "template": "templates/software-project/AGENTS.md"
+    },
+    "ARCHITECTURE.md": {
+      "module": "software-project",
+      "source_sha256": "d4bc53a978c2fe36b79d0b70b1800043ae82a54f96604fa76b493b56cb67e569",
+      "template": "templates/software-project/ARCHITECTURE.md"
+    },
+    "BACKLOG.md": {
+      "module": "software-project",
+      "source_sha256": "d2b432b8e565f5f914cfa8e6c5fbdfe6bb793554f24257600a3e45d506fb148d",
+      "template": "templates/software-project/BACKLOG.md"
+    },
+    "CLAUDE.md": {
+      "module": "software-project",
+      "source_sha256": "5e71c3b6392f45b0f9d2c3717be2a2ec9b941d7a3b60f9514d8e547479e025a8",
+      "template": "templates/software-project/CLAUDE.md"
+    },
+    "CONTRIBUTING.md": {
+      "module": "software-project",
+      "source_sha256": "478bd7935cea429668bb4447b0e0ceceff05457405a422d72c2f75fd87265589",
+      "template": "templates/software-project/CONTRIBUTING.md"
+    },
+    "README.md": {
+      "module": "software-project",
+      "source_sha256": "b53946142f533075869ab775eb3bff511a0bff36b20a1329e58be2a2a592138c",
+      "template": "templates/software-project/README.md"
+    },
+    "ROADMAP.md": {
+      "module": "software-project",
+      "source_sha256": "d45c641c2dab405e38791eacdbf96c87f1cebe96888e81647e2178f9c0abc133",
+      "template": "templates/software-project/ROADMAP.md"
+    },
+    "TEMPLATE_GUIDE.md": {
+      "module": "software-project",
+      "source_sha256": "372d65cbb0ee5ae1d1e019d41bd65d5415d84b733ab757ef8e0de6d04907bcf3",
+      "template": "templates/software-project/TEMPLATE_GUIDE.md"
+    },
+    "scripts/check-agent-docs.sh": {
+      "module": "software-project",
+      "source_sha256": "96bfb6b8d7a7254548a92056e9d832693f0791f6f55786d1900fd9e96337a2ec",
+      "template": "templates/software-project/scripts/check-agent-docs.sh"
+    }
+  },
+  "generated_at": "2026-07-28T02:45:09.099166+00:00",
+  "mode": "human",
+  "modules": [
+    "software-project"
+  ],
+  "project_name": "valorant-mcp",
+  "schema_version": 1,
+  "source": {
+    "commit": "d04ec9e64ceb4c080aa0253cc91c187cd43d18b1",
+    "repository": "duckling1169/agentic-devkit"
+  }
+}
