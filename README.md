@@ -26,3 +26,7 @@ The first product milestone will let an OAuth-authenticated owner ask an MCP cli
 - [CONTRIBUTING.md](CONTRIBUTING.md): development and release workflow.
 - [BACKLOG.md](BACKLOG.md): bounded near-term work.
 - [ROADMAP.md](ROADMAP.md): optional longer-term direction.
+
+## License
+
+[MIT](LICENSE)
