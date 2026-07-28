@@ -1,0 +1,12 @@
+# Package-manager-owned files
+pnpm-lock.yaml
+
+# Build output
+.next/
+
+# Devkit provenance/baseline snapshots — not ours to reformat
+.agentic-devkit/
+.agentic-devkit.json
+
+# Hand-authored prose docs, not code
+*.md
