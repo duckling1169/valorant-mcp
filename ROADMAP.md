@@ -4,11 +4,7 @@ Optional, noncommitted longer-term direction. Do not duplicate the near-term bac
 
 ## Now
 
-- **M1 — securely hosted personal MCP.** Vercel deployment with Supabase Auth (email magic-link), explicit client approval, and authentication enforced on both production and preview deployments; Claude launch validation; and exactly three factual tools operating only on the one configured PC profile: `get_profile()`, `get_recent_matches({ limit? })` for recent **competitive** matches (default 10, maximum 10), and `get_match_detail({ match_id })` with compact selected-match detail using current HenrikDev endpoints. See [BACKLOG.md](BACKLOG.md).
-
-## Next
-
-- **M2 — bounded cache, rate-budget behavior, historical discovery, richer match insight, and ChatGPT compatibility.** Supabase Postgres cache limited to authorized data, 100 match records, or 90 days; add a bounded `search_match_history` tool for map, agent, date, act, and rank queries; validate ChatGPT as an MCP client; then review the legacy MCP's derived match facets and carry forward only the ones that improve the new MCP's factual, context-efficient output.
+- **M2 — bounded cache, rate-budget behavior, historical discovery, richer match insight, and ChatGPT compatibility.** Supabase Postgres cache limited to authorized data, 100 match records, or 90 days; add a bounded `search_match_history` tool for map, agent, date, act, and rank queries; validate ChatGPT as an MCP client; then review the legacy MCP's derived match facets and carry forward only the ones that improve the new MCP's factual, context-efficient output. See [BACKLOG.md](BACKLOG.md).
 
 ## Later / exploratory
 
