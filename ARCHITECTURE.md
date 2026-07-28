@@ -2,7 +2,7 @@
 
 ## System boundary
 
-`valorant-mcp` will be a private Streamable HTTP MCP server. It will provide factual, compact VALORANT data to OAuth-authenticated LLM clients; HenrikDev is the only data provider. Interpretation and coaching remain with the client model.
+`valorant-mcp` is a private Streamable HTTP MCP server. It provides factual, compact VALORANT data to OAuth-authenticated LLM clients; HenrikDev is the only data provider. Interpretation and coaching remain with the client model.
 
 ## Components
 
@@ -29,7 +29,7 @@ flowchart LR
 - Match-participant data, hosted single-operator use, and M1 retention follow M0's provisional scope decisions (see Decisions log, 2026-07-28); access to any player beyond the operator remains gated behind M3's own consent/capacity go/no-go.
 - The server returns facts and compact derived descriptive statistics; it does not provide coaching or editorial conclusions.
 
-## Error mapping (M1 draft, provisional)
+## Error mapping (implemented in M1, live in production)
 
 Every MCP tool returns one structured envelope; internal code may throw, but only the tool boundary converts a throw into an envelope (never leak a raw exception or HenrikDev response body to the client).
 
@@ -53,7 +53,7 @@ interface Envelope<T> {
 | `schema` | HenrikDev payload doesn't match the expected validated shape (fail-closed decision, above) | no — retrying the same request won't fix a changed provider contract; surfaces as a signal to update the integration | provider contract drift |
 | `input` | Malformed tool arguments, or a request outside the approved consent/access scope | no | caller/request |
 
-No kind carries a HenrikDev response body or player data in its `message`; `schema` errors may name the offending field path but never its value. This is a first draft to implement against in M1, not a frozen contract — refine it once real HenrikDev error shapes are exercised in tests.
+No kind carries a HenrikDev response body or player data in its `message`; `schema` errors may name the offending field path but never its value.
 
 ## Decisions
 
@@ -78,3 +78,4 @@ No kind carries a HenrikDev response body or player data in its `message`; `sche
 - 2026-07-28 — provisional, subject to revision — accept a single-operator hosted MCP as within HenrikDev's Basic/Enhanced key intent for M1–M2. Basis: HenrikDev's "not designed for production apps" language reads as aimed at commercial/multi-tenant scale (the justification and approval workflow only bites at Enhanced/Production tiers), not at one person's own always-on personal deployment; the 30 req/min Basic ceiling is a design constraint to build around (batching, caching, the rate-budget gate), not a signal the use case itself is disallowed. No direct reply from HenrikDev was received — revisit if M3's multi-user volume approaches Enhanced-tier territory, or if HenrikDev's policy text changes.
 - 2026-07-28 — provisional, subject to revision — M1 ships with no persistent cache, so it has no retention question to resolve: a tool's output lands in the client's own chat history the moment it's returned. This fully closes M0's retention gap for M1's scope. Open tension flagged, not resolved: ROADMAP.md's M2 cache bound (100 matches or 90 days) is more generous than HenrikDev's own served-cache TTL (300s free tier, down to 30s on paid tiers) — decide before M2 caching ships whether to keep the 90-day bound, tighten it toward HenrikDev's TTL, or justify the gap; no direct HenrikDev reply on retention was received either way.
 - 2026-07-28 — supersedes the 2026-07-27 Discord-login decision — use Supabase Auth's own email magic-link (passwordless), not Discord, for hosted access. Supabase Auth alone provides the managed OAuth 2.1/MCP authorization server the protocol needs; Discord was a bundled identity-provider choice, not a requirement of it, and dropping it removes an external OAuth app/secret and a token-exchange failure mode with no compensating benefit for a single-operator server. Revisit only if M3 wants Discord identity specifically for allowlist purposes.
+- 2026-07-28 — operational note, not a design decision, but recorded because it silently broke production once: Vercel's Preview and Production environments hold **separate** env var sets. Connecting the GitHub repo to Vercel makes every `main` push an automatic Production build; if the five required vars (`HENRIKDEV_API_KEY`, `VALORANT_OPERATOR_PUUID`, `VALORANT_REGION`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`) are only added to Preview, every Production build fails at `loadConfig`/`requireEnv` during page-data collection. Set new required env vars in **both** environments going forward.
