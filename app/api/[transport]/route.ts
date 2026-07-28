@@ -1,8 +1,9 @@
-import { createMcpHandler } from "mcp-handler";
+import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { loadConfig } from "@/src/config";
 import { HenrikClient } from "@/src/henrik-client";
 import { Endpoints } from "@/src/endpoints";
 import { getProfile } from "@/src/profile";
+import { verifyToken } from "@/src/verify-token";
 
 // mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
 // it dispatches on the actual path itself (mcp/sse/message); `basePath` only tells
@@ -16,7 +17,7 @@ const config = loadConfig(process.env);
 const client = new HenrikClient({ apiKey: config.henrikApiKey });
 const endpoints = new Endpoints(client);
 
-const handler = createMcpHandler(
+const mcpHandler = createMcpHandler(
   (server) => {
     server.registerTool(
       "get_profile",
@@ -37,6 +38,15 @@ const handler = createMcpHandler(
   { serverInfo: { name: "valorant-mcp", version: "0.0.0" } },
   { basePath: "/api", disableSse: true },
 );
+
+// Every request must carry a bearer token issued by Supabase's OAuth 2.1 server
+// and verified against its JWKS (src/verify-token.ts). Unauthenticated requests
+// get a 401 pointing at the protected-resource metadata below, which is how an
+// MCP client (Claude) discovers Supabase as the authorization server.
+const handler = withMcpAuth(mcpHandler, verifyToken, {
+  required: true,
+  resourceMetadataPath: "/.well-known/oauth-protected-resource",
+});
 
 export const maxDuration = 60;
 
