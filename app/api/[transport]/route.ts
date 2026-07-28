@@ -1,8 +1,10 @@
+import { z } from "zod";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { loadConfig } from "@/src/config";
 import { HenrikClient } from "@/src/henrik-client";
 import { Endpoints } from "@/src/endpoints";
 import { getProfile } from "@/src/profile";
+import { getRecentMatches } from "@/src/recent-matches";
 import { verifyToken } from "@/src/verify-token";
 
 // mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
@@ -10,9 +12,9 @@ import { verifyToken } from "@/src/verify-token";
 // it what prefix to assume for URLs it constructs internally. SSE is disabled: the
 // MCP spec deprecated it (2025-03-26) and we only need streamable HTTP.
 //
-// No auth yet (Slice 3). Bound to the one operator profile configured via env
-// (ARCHITECTURE.md's PUUID-binding decision) — constructed once at module scope
-// and reused across warm serverless invocations.
+// Bound to the one operator profile configured via env (ARCHITECTURE.md's
+// PUUID-binding decision) — constructed once at module scope and reused across
+// warm serverless invocations.
 const config = loadConfig(process.env);
 const client = new HenrikClient({ apiKey: config.henrikApiKey });
 const endpoints = new Endpoints(client);
@@ -31,6 +33,22 @@ const mcpHandler = createMcpHandler(
         // an MCP protocol error — a "rate" or "upstream" result is a legitimate,
         // well-typed outcome for the client model to read, not a thrown exception
         // (ARCHITECTURE.md: "return stable structured JSON from MCP tools").
+        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+      },
+    );
+
+    server.registerTool(
+      "get_recent_matches",
+      {
+        description:
+          "The operator's recent competitive VALORANT matches (default 10, maximum 10).",
+        inputSchema: { limit: z.number().int().min(1).max(10).optional() },
+      },
+      async ({ limit }) => {
+        const envelope = await getRecentMatches(
+          { endpoints, config },
+          { limit: limit ?? 10 },
+        );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
       },
     );

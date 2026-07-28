@@ -1,0 +1,60 @@
+{
+  "status": 200,
+  "name": "testname",
+  "tag": "TEST",
+  "results": { "total": 2, "returned": 2, "before": 0, "after": 0 },
+  "data": [
+    {
+      "meta": {
+        "id": "match-1",
+        "map": { "id": "map-id-1", "name": "Ascent" },
+        "version": "10.0",
+        "mode": "competitive",
+        "started_at": "2026-07-20T00:00:00Z",
+        "season": { "id": "season-1", "short": "e11a3" },
+        "region": "na",
+        "cluster": "atlanta"
+      },
+      "stats": {
+        "puuid": "00000000-0000-0000-0000-000000000000",
+        "team": "Red",
+        "level": 100,
+        "character": { "id": "agent-id-1", "name": "Jett" },
+        "tier": 10,
+        "score": 250,
+        "kills": 20,
+        "deaths": 15,
+        "assists": 5,
+        "shots": { "head": 10, "body": 20, "leg": 2 },
+        "damage": { "dealt": 4000, "received": 3000 }
+      },
+      "teams": { "red": 13, "blue": 8 }
+    },
+    {
+      "meta": {
+        "id": "match-2",
+        "map": { "id": "map-id-2", "name": "Bind" },
+        "version": "10.0",
+        "mode": "competitive",
+        "started_at": "2026-07-19T00:00:00Z",
+        "season": { "id": "season-1", "short": "e11a3" },
+        "region": "na",
+        "cluster": "atlanta"
+      },
+      "stats": {
+        "puuid": "00000000-0000-0000-0000-000000000000",
+        "team": "Blue",
+        "level": 100,
+        "character": { "id": "agent-id-2", "name": "Omen" },
+        "tier": 10,
+        "score": 180,
+        "kills": 12,
+        "deaths": 18,
+        "assists": 8,
+        "shots": { "head": 5, "body": 15, "leg": 1 },
+        "damage": { "dealt": 2800, "received": 3500 }
+      },
+      "teams": { "red": 13, "blue": 7 }
+    }
+  ]
+}

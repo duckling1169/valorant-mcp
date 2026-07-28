@@ -3,9 +3,11 @@ import type { Region, Platform } from "./config";
 import {
   accountByPuuidSchema,
   mmrByPuuidSchema,
+  storedMatchesSchema,
   parseHenrikPayload,
   type AccountByPuuidResponse,
   type MmrByPuuidResponse,
+  type StoredMatchesResponse,
 } from "./henrik-schemas";
 
 // Thin, version-picked primitives over HenrikClient — one fn per endpoint we use,
@@ -37,5 +39,16 @@ export class Endpoints {
       `/valorant/v3/by-puuid/mmr/${region}/${platform}/${seg(puuid)}`,
     );
     return parseHenrikPayload(mmrByPuuidSchema, res.data).data;
+  }
+
+  async getRecentMatches(
+    region: Region,
+    puuid: string,
+    limit: number,
+  ): Promise<StoredMatchesResponse["data"]> {
+    const res = await this.client.get(
+      `/valorant/v1/by-puuid/stored-matches/${region}/${seg(puuid)}?mode=competitive&size=${limit}`,
+    );
+    return parseHenrikPayload(storedMatchesSchema, res.data).data;
   }
 }

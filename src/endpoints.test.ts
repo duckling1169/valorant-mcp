@@ -48,6 +48,16 @@ describe("Endpoints", () => {
     );
   });
 
+  it("getRecentMatches requests the correct path with mode=competitive and size", async () => {
+    const client = fakeClient(loadFixture("stored-matches-v1.json"));
+    const endpoints = new Endpoints(client);
+    const matches = await endpoints.getRecentMatches("na", "abc-123", 5);
+    expect(client.get).toHaveBeenCalledWith(
+      "/valorant/v1/by-puuid/stored-matches/na/abc-123?mode=competitive&size=5",
+    );
+    expect(matches).toHaveLength(2);
+  });
+
   it("propagates SchemaError when the payload fails validation", async () => {
     const bad = loadFixture("account-v2.json") as {
       data: Record<string, unknown>;

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   accountByPuuidSchema,
   mmrByPuuidSchema,
+  storedMatchesSchema,
   parseHenrikPayload,
 } from "./henrik-schemas";
 import { SchemaError } from "./errors";
@@ -53,5 +54,24 @@ describe("henrik-schemas", () => {
         "not-a-number-but-a-secret-looking-string",
       );
     }
+  });
+
+  it("parses a valid stored-matches-v1 fixture", () => {
+    const body = loadFixture("stored-matches-v1.json");
+    const parsed = parseHenrikPayload(storedMatchesSchema, body);
+    expect(parsed.data).toHaveLength(2);
+    expect(parsed.data[0]?.meta.map.name).toBe("Ascent");
+  });
+
+  it("fails closed with SchemaError when a stored-matches field is missing", () => {
+    const body = loadFixture("stored-matches-v1.json") as {
+      data: Array<{ stats: Record<string, unknown> }>;
+    };
+    const first = body.data[0];
+    if (!first) throw new Error("fixture missing first match");
+    delete first.stats.kills;
+    expect(() => parseHenrikPayload(storedMatchesSchema, body)).toThrow(
+      SchemaError,
+    );
   });
 });

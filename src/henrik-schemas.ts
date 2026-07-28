@@ -55,6 +55,34 @@ export const mmrByPuuidSchema = z.object({
 });
 export type MmrByPuuidResponse = z.infer<typeof mmrByPuuidSchema>;
 
+const storedMatchItemSchema = z.object({
+  meta: z.object({
+    id: z.string(),
+    map: z.object({ name: z.string().nullable() }),
+    mode: z.string(),
+    started_at: z.string(),
+  }),
+  stats: z.object({
+    team: z.string(),
+    character: z.object({ name: z.string().nullable() }),
+    tier: z.number(),
+    score: z.number(),
+    kills: z.number(),
+    deaths: z.number(),
+    assists: z.number(),
+  }),
+  teams: z.object({
+    red: z.number().nullable(),
+    blue: z.number().nullable(),
+  }),
+});
+
+export const storedMatchesSchema = z.object({
+  status: z.number(),
+  data: z.array(storedMatchItemSchema),
+});
+export type StoredMatchesResponse = z.infer<typeof storedMatchesSchema>;
+
 /** Parse `body` against `schema`; on failure, throw SchemaError naming the field
  * path only — never the offending value (ARCHITECTURE.md's error-mapping rule). */
 export function parseHenrikPayload<T>(schema: z.ZodType<T>, body: unknown): T {
