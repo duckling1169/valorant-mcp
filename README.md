@@ -4,7 +4,7 @@ An always-available, private MCP server that gives its owner’s LLM client fact
 
 ## Quick start
 
-The project targets Node.js 24.x and pnpm 10.x. It is currently in M0 policy research; no server implementation exists yet.
+The project targets Node.js 24.x and pnpm 10.x. M0 policy research is resolved (see ARCHITECTURE.md's Decisions log); M1 implementation is starting, but no server code exists yet.
 
 ```sh
 # No executable setup or run command yet.
@@ -18,7 +18,7 @@ sh scripts/check-agent-docs.sh
 
 ## Normal use
 
-The first product milestone will let an OAuth-authenticated owner ask an MCP client for an approved VALORANT profile, recent competitive matches, and one selected match’s compact factual detail. Implementation is blocked until M0 establishes the applicable HenrikDev data-use boundary.
+The first product milestone will let an OAuth-authenticated owner ask an MCP client for an approved VALORANT profile, recent competitive matches, and one selected match’s compact factual detail. See [BACKLOG.md](BACKLOG.md) for M1's current scope.
 
 ## Project documents
 

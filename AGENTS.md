@@ -12,7 +12,7 @@
 - HenrikDev is the sole VALORANT data provider. Use its current official documentation/OpenAPI; legacy repository documentation is comparison material only.
 - Use TypeScript on Node.js 24.x with pnpm; do not rely on the locally installed Node.js 25 runtime for deployment compatibility.
 - TypeScript runs in strict mode. Do not use `any`, `as unknown as`, or unchecked assertion casts; validate untrusted API and request data at boundaries instead.
-- M0 policy research is a hard gate: do not implement, expose, or cache player-data flows whose consent scope or deployment approval is unresolved.
+- Do not implement, expose, or cache player-data flows whose consent scope or deployment approval is unresolved (M0 resolved for the operator's own data and matches, see ARCHITECTURE.md Decisions 2026-07-28; M3 multi-user access is its own unresolved gate).
 - Keep MCP responses factual and token-efficient. Never add public lookup, prefetching, scraping, population-level analytics, or cross-player profile drill-down without explicit approved scope.
 - Treat API keys, OAuth credentials, player identities, and match data as sensitive. Never commit or expose them.
 
