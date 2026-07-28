@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
-import { getProfile } from "./profile.js";
-import type { Endpoints } from "./endpoints.js";
+import { getProfile } from "./profile";
+import type { Endpoints } from "./endpoints";
 import {
   RateBudgetExhaustedError,
   UpstreamError,
   SchemaError,
   InputError,
-} from "./errors.js";
+} from "./errors";
 
 const config = {
   operatorPuuid: "abc-123",

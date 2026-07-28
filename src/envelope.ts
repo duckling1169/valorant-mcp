@@ -3,7 +3,7 @@ import {
   UpstreamError,
   SchemaError,
   InputError,
-} from "./errors.js";
+} from "./errors";
 
 // The one envelope every tool returns (ARCHITECTURE.md's Error mapping section).
 // Internal code throws; only the tool boundary (guardTool/toToolError) converts a

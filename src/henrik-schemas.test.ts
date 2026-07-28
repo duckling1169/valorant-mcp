@@ -5,8 +5,8 @@ import {
   accountByPuuidSchema,
   mmrByPuuidSchema,
   parseHenrikPayload,
-} from "./henrik-schemas.js";
-import { SchemaError } from "./errors.js";
+} from "./henrik-schemas";
+import { SchemaError } from "./errors";
 
 function loadFixture(name: string): unknown {
   const path = fileURLToPath(

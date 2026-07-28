@@ -1,12 +1,12 @@
-import type { HenrikClient } from "./henrik-client.js";
-import type { Region, Platform } from "./config.js";
+import type { HenrikClient } from "./henrik-client";
+import type { Region, Platform } from "./config";
 import {
   accountByPuuidSchema,
   mmrByPuuidSchema,
   parseHenrikPayload,
   type AccountByPuuidResponse,
   type MmrByPuuidResponse,
-} from "./henrik-schemas.js";
+} from "./henrik-schemas";
 
 // Thin, version-picked primitives over HenrikClient — one fn per endpoint we use,
 // pinned to the current version confirmed against docs.henrikdev.xyz during

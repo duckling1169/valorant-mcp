@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { Endpoints } from "./endpoints.js";
-import type { HenrikClient } from "./henrik-client.js";
-import { SchemaError } from "./errors.js";
+import { Endpoints } from "./endpoints";
+import type { HenrikClient } from "./henrik-client";
+import { SchemaError } from "./errors";
 
 function loadFixture(name: string): unknown {
   const path = fileURLToPath(

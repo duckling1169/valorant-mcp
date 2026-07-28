@@ -1,5 +1,5 @@
-import { RateBudget } from "./rate-budget.js";
-import { RateBudgetExhaustedError, UpstreamError } from "./errors.js";
+import { RateBudget } from "./rate-budget";
+import { RateBudgetExhaustedError, UpstreamError } from "./errors";
 
 export interface HenrikClientOptions {
   apiKey: string;

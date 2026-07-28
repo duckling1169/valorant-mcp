@@ -2,10 +2,10 @@
 // HenrikDev smoke test uses the maintainer's key and is manually invoked; it never
 // runs in CI"). Run with: pnpm smoke:profile
 
-import { loadConfig } from "../src/config.js";
-import { HenrikClient } from "../src/henrik-client.js";
-import { Endpoints } from "../src/endpoints.js";
-import { getProfile } from "../src/profile.js";
+import { loadConfig } from "../src/config";
+import { HenrikClient } from "../src/henrik-client";
+import { Endpoints } from "../src/endpoints";
+import { getProfile } from "../src/profile";
 
 const config = loadConfig(process.env);
 const client = new HenrikClient({ apiKey: config.henrikApiKey });

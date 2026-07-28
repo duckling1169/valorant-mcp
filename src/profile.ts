@@ -1,6 +1,6 @@
-import type { Endpoints } from "./endpoints.js";
-import type { ServerConfig } from "./config.js";
-import { guardTool, type Envelope } from "./envelope.js";
+import type { Endpoints } from "./endpoints";
+import type { ServerConfig } from "./config";
+import { guardTool, type Envelope } from "./envelope";
 
 // get_profile() — no arguments; bound to the one configured operator profile
 // (ARCHITECTURE.md's PUUID-binding decision). Composes account + current/peak

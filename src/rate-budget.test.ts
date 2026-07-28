@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { RateBudget } from "./rate-budget.js";
+import { RateBudget } from "./rate-budget";
 
 describe("RateBudget", () => {
   it("allows up to capacity reservations, then refuses", () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { HenrikClient } from "./henrik-client.js";
-import { RateBudget } from "./rate-budget.js";
-import { RateBudgetExhaustedError, UpstreamError } from "./errors.js";
+import { HenrikClient } from "./henrik-client";
+import { RateBudget } from "./rate-budget";
+import { RateBudgetExhaustedError, UpstreamError } from "./errors";
 
 function jsonResponse(
   status: number,

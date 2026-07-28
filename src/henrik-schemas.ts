@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SchemaError } from "./errors.js";
+import { SchemaError } from "./errors";
 
 // Validate only the fields get_profile actually consumes from each HenrikDev
 // payload (ARCHITECTURE.md: "validate HenrikDev payloads at the boundary and fail
