@@ -5,6 +5,7 @@ import { HenrikClient } from "@/src/henrik-client";
 import { Endpoints } from "@/src/endpoints";
 import { getProfile } from "@/src/profile";
 import { getRecentMatches } from "@/src/recent-matches";
+import { getMatchDetail } from "@/src/match-detail";
 import { verifyToken } from "@/src/verify-token";
 
 // mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
@@ -48,6 +49,22 @@ const mcpHandler = createMcpHandler(
         const envelope = await getRecentMatches(
           { endpoints, config },
           { limit: limit ?? 10 },
+        );
+        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+      },
+    );
+
+    server.registerTool(
+      "get_match_detail",
+      {
+        description:
+          "Compact detail for one of the operator's own matches (map, per-player stats, final team scores). Rejected if the operator wasn't a participant.",
+        inputSchema: { match_id: z.string().min(1) },
+      },
+      async ({ match_id }) => {
+        const envelope = await getMatchDetail(
+          { endpoints, config },
+          { match_id },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
       },

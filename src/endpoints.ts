@@ -4,10 +4,12 @@ import {
   accountByPuuidSchema,
   mmrByPuuidSchema,
   storedMatchesSchema,
+  matchByIdSchema,
   parseHenrikPayload,
   type AccountByPuuidResponse,
   type MmrByPuuidResponse,
   type StoredMatchesResponse,
+  type MatchByIdResponse,
 } from "./henrik-schemas";
 
 // Thin, version-picked primitives over HenrikClient — one fn per endpoint we use,
@@ -50,5 +52,15 @@ export class Endpoints {
       `/valorant/v1/by-puuid/stored-matches/${region}/${seg(puuid)}?mode=competitive&size=${limit}`,
     );
     return parseHenrikPayload(storedMatchesSchema, res.data).data;
+  }
+
+  async getMatchById(
+    region: Region,
+    matchId: string,
+  ): Promise<MatchByIdResponse["data"]> {
+    const res = await this.client.get(
+      `/valorant/v4/match/${region}/${seg(matchId)}`,
+    );
+    return parseHenrikPayload(matchByIdSchema, res.data).data;
   }
 }

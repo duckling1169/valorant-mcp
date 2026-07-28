@@ -58,6 +58,14 @@ describe("Endpoints", () => {
     expect(matches).toHaveLength(2);
   });
 
+  it("getMatchById requests the correct path (region/matchid, no platform)", async () => {
+    const client = fakeClient(loadFixture("match-v4.json"));
+    const endpoints = new Endpoints(client);
+    const match = await endpoints.getMatchById("na", "match-abc");
+    expect(client.get).toHaveBeenCalledWith("/valorant/v4/match/na/match-abc");
+    expect(match.players).toHaveLength(2);
+  });
+
   it("propagates SchemaError when the payload fails validation", async () => {
     const bad = loadFixture("account-v2.json") as {
       data: Record<string, unknown>;

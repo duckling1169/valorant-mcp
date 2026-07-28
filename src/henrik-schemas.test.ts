@@ -5,6 +5,7 @@ import {
   accountByPuuidSchema,
   mmrByPuuidSchema,
   storedMatchesSchema,
+  matchByIdSchema,
   parseHenrikPayload,
 } from "./henrik-schemas";
 import { SchemaError } from "./errors";
@@ -71,6 +72,25 @@ describe("henrik-schemas", () => {
     if (!first) throw new Error("fixture missing first match");
     delete first.stats.kills;
     expect(() => parseHenrikPayload(storedMatchesSchema, body)).toThrow(
+      SchemaError,
+    );
+  });
+
+  it("parses a valid match-v4 fixture", () => {
+    const body = loadFixture("match-v4.json");
+    const parsed = parseHenrikPayload(matchByIdSchema, body);
+    expect(parsed.data.players).toHaveLength(2);
+    expect(parsed.data.metadata.map.name).toBe("Ascent");
+  });
+
+  it("fails closed with SchemaError when a match-v4 field is missing", () => {
+    const body = loadFixture("match-v4.json") as {
+      data: { teams: Array<Record<string, unknown>> };
+    };
+    const firstTeam = body.data.teams[0];
+    if (!firstTeam) throw new Error("fixture missing first team");
+    delete firstTeam.won;
+    expect(() => parseHenrikPayload(matchByIdSchema, body)).toThrow(
       SchemaError,
     );
   });

@@ -83,6 +83,48 @@ export const storedMatchesSchema = z.object({
 });
 export type StoredMatchesResponse = z.infer<typeof storedMatchesSchema>;
 
+const matchPlayerSchema = z.object({
+  puuid: z.string(),
+  name: z.string(),
+  tag: z.string(),
+  team_id: z.string(),
+  agent: z.object({ name: z.string().nullable() }),
+  tier: tierRefSchema,
+  stats: z.object({
+    score: z.number(),
+    kills: z.number(),
+    deaths: z.number(),
+    assists: z.number(),
+    headshots: z.number(),
+    bodyshots: z.number(),
+    legshots: z.number(),
+    damage: z.object({ dealt: z.number(), received: z.number() }),
+  }),
+});
+
+const matchTeamSchema = z.object({
+  team_id: z.string(),
+  rounds: z.object({ won: z.number(), lost: z.number() }),
+  won: z.boolean(),
+});
+
+export const matchByIdSchema = z.object({
+  status: z.number(),
+  data: z.object({
+    metadata: z.object({
+      match_id: z.string(),
+      map: z.object({ name: z.string() }),
+      queue: z.object({ id: z.string(), name: z.string().nullable() }),
+      started_at: z.string(),
+      game_length_in_ms: z.number(),
+      is_completed: z.boolean(),
+    }),
+    players: z.array(matchPlayerSchema),
+    teams: z.array(matchTeamSchema),
+  }),
+});
+export type MatchByIdResponse = z.infer<typeof matchByIdSchema>;
+
 /** Parse `body` against `schema`; on failure, throw SchemaError naming the field
  * path only — never the offending value (ARCHITECTURE.md's error-mapping rule). */
 export function parseHenrikPayload<T>(schema: z.ZodType<T>, body: unknown): T {
