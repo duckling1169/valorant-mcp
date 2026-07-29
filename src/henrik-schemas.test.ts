@@ -81,6 +81,34 @@ describe("henrik-schemas", () => {
     const parsed = parseHenrikPayload(matchByIdSchema, body);
     expect(parsed.data.players).toHaveLength(2);
     expect(parsed.data.metadata.map.name).toBe("Ascent");
+    expect(parsed.data.rounds).toHaveLength(1);
+    expect(parsed.data.rounds[0]?.plant?.site).toBe("B");
+    expect(parsed.data.kills).toHaveLength(1);
+    expect(parsed.data.kills[0]?.weapon.name).toBe("Vandal");
+  });
+
+  it("fails closed with SchemaError when a round's economy data is missing", () => {
+    const body = loadFixture("match-v4.json") as {
+      data: { rounds: Array<{ stats: Array<{ economy: unknown }> }> };
+    };
+    const firstRoundStats = body.data.rounds[0]?.stats[0];
+    if (!firstRoundStats) throw new Error("fixture missing first round stats");
+    delete (firstRoundStats as { economy?: unknown }).economy;
+    expect(() => parseHenrikPayload(matchByIdSchema, body)).toThrow(
+      SchemaError,
+    );
+  });
+
+  it("fails closed with SchemaError when a kill's weapon field is missing", () => {
+    const body = loadFixture("match-v4.json") as {
+      data: { kills: Array<Record<string, unknown>> };
+    };
+    const firstKill = body.data.kills[0];
+    if (!firstKill) throw new Error("fixture missing first kill");
+    delete firstKill.weapon;
+    expect(() => parseHenrikPayload(matchByIdSchema, body)).toThrow(
+      SchemaError,
+    );
   });
 
   it("fails closed with SchemaError when a match-v4 field is missing", () => {

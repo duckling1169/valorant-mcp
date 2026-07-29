@@ -108,6 +108,72 @@ const matchTeamSchema = z.object({
   won: z.boolean(),
 });
 
+// M2's T2 facets (KAST, trades, first bloods, multi-kills, weapon kills, side
+// splits, economy buckets, plants/defuses, clutch stats) all derive from these
+// two arrays. Validate only the fields those facets need, matching the file's
+// existing "validate only what we consume" convention.
+
+const roundPlayerRefSchema = z.object({
+  puuid: z.string(),
+  team: z.string(),
+});
+
+const weaponRefSchema = z.object({
+  name: z.string().nullable(),
+});
+
+const roundStatsSchema = z.object({
+  player: roundPlayerRefSchema,
+  damage_events: z.array(
+    z.object({
+      player: roundPlayerRefSchema,
+      bodyshots: z.number(),
+      headshots: z.number(),
+      legshots: z.number(),
+      damage: z.number(),
+    }),
+  ),
+  stats: z.object({
+    bodyshots: z.number(),
+    headshots: z.number(),
+    legshots: z.number(),
+    kills: z.number(),
+    score: z.number(),
+  }),
+  economy: z.object({
+    loadout_value: z.number(),
+    weapon: weaponRefSchema,
+  }),
+});
+
+const matchRoundSchema = z.object({
+  id: z.number(),
+  winning_team: z.string(),
+  plant: z
+    .object({
+      round_time_in_ms: z.number(),
+      site: z.string(),
+      player: roundPlayerRefSchema,
+    })
+    .nullable(),
+  defuse: z
+    .object({
+      round_time_in_ms: z.number(),
+      player: roundPlayerRefSchema,
+    })
+    .nullable(),
+  stats: z.array(roundStatsSchema),
+});
+
+const matchKillSchema = z.object({
+  round: z.number(),
+  time_in_round_in_ms: z.number(),
+  killer: roundPlayerRefSchema,
+  victim: roundPlayerRefSchema,
+  assistants: z.array(roundPlayerRefSchema),
+  weapon: weaponRefSchema,
+});
+
 export const matchByIdSchema = z.object({
   status: z.number(),
   data: z.object({
@@ -121,9 +187,13 @@ export const matchByIdSchema = z.object({
     }),
     players: z.array(matchPlayerSchema),
     teams: z.array(matchTeamSchema),
+    rounds: z.array(matchRoundSchema),
+    kills: z.array(matchKillSchema),
   }),
 });
 export type MatchByIdResponse = z.infer<typeof matchByIdSchema>;
+export type MatchRound = z.infer<typeof matchRoundSchema>;
+export type MatchKill = z.infer<typeof matchKillSchema>;
 
 /** Parse `body` against `schema`; on failure, throw SchemaError naming the field
  * path only — never the offending value (ARCHITECTURE.md's error-mapping rule). */

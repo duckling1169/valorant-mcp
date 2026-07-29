@@ -75,6 +75,86 @@
     "teams": [
       { "team_id": "Red", "rounds": { "won": 13, "lost": 8 }, "won": true },
       { "team_id": "Blue", "rounds": { "won": 8, "lost": 13 }, "won": false }
+    ],
+    "rounds": [
+      {
+        "id": 0,
+        "winning_team": "Red",
+        "plant": {
+          "round_time_in_ms": 45000,
+          "site": "B",
+          "player": {
+            "puuid": "00000000-0000-0000-0000-000000000000",
+            "team": "Red"
+          }
+        },
+        "defuse": null,
+        "stats": [
+          {
+            "player": {
+              "puuid": "00000000-0000-0000-0000-000000000000",
+              "team": "Red"
+            },
+            "damage_events": [
+              {
+                "player": {
+                  "puuid": "11111111-1111-1111-1111-111111111111",
+                  "team": "Blue"
+                },
+                "bodyshots": 2,
+                "headshots": 1,
+                "legshots": 0,
+                "damage": 150
+              }
+            ],
+            "stats": {
+              "bodyshots": 2,
+              "headshots": 1,
+              "legshots": 0,
+              "kills": 1,
+              "score": 200
+            },
+            "economy": {
+              "loadout_value": 3900,
+              "weapon": { "name": "Vandal" }
+            }
+          },
+          {
+            "player": {
+              "puuid": "11111111-1111-1111-1111-111111111111",
+              "team": "Blue"
+            },
+            "damage_events": [],
+            "stats": {
+              "bodyshots": 0,
+              "headshots": 0,
+              "legshots": 0,
+              "kills": 0,
+              "score": 0
+            },
+            "economy": {
+              "loadout_value": 800,
+              "weapon": { "name": "Classic" }
+            }
+          }
+        ]
+      }
+    ],
+    "kills": [
+      {
+        "round": 0,
+        "time_in_round_in_ms": 44000,
+        "killer": {
+          "puuid": "00000000-0000-0000-0000-000000000000",
+          "team": "Red"
+        },
+        "victim": {
+          "puuid": "11111111-1111-1111-1111-111111111111",
+          "team": "Blue"
+        },
+        "assistants": [],
+        "weapon": { "name": "Vandal" }
+      }
     ]
   }
 }
