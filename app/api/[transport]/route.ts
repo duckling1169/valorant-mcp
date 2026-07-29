@@ -10,6 +10,9 @@ import { getPlayerStats } from "@/src/player-stats";
 import { compareMatch } from "@/src/compare-match";
 import { compareRank } from "@/src/compare-rank";
 import { getRankHistory } from "@/src/rank-history";
+import { createCacheClient } from "@/src/supabase-cache-client";
+import { MatchCache } from "@/src/match-cache";
+import { searchMatchHistory } from "@/src/search-match-history";
 import { verifyToken } from "@/src/verify-token";
 
 // mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
@@ -23,6 +26,7 @@ import { verifyToken } from "@/src/verify-token";
 const config = loadConfig(process.env);
 const client = new HenrikClient({ apiKey: config.henrikApiKey });
 const endpoints = new Endpoints(client);
+const cache = new MatchCache(createCacheClient());
 
 const mcpHandler = createMcpHandler(
   (server) => {
@@ -70,7 +74,7 @@ const mcpHandler = createMcpHandler(
       },
       async ({ match_id, include_insight }) => {
         const envelope = await getMatchDetail(
-          { endpoints, config },
+          { endpoints, config, cache },
           { match_id, include_insight },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
@@ -151,6 +155,33 @@ const mcpHandler = createMcpHandler(
         const envelope = await getRankHistory(
           { endpoints, config },
           { limit: limit ?? 20, since_match_id },
+        );
+        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+      },
+    );
+
+    server.registerTool(
+      "search_match_history",
+      {
+        description:
+          "Cache-only search over the operator's own matches already fetched via get_match_detail (map/agent/act/rank/date filters, default 20 results, maximum 100). " +
+          "No live HenrikDev call and no fallback — only matches previously detailed via get_match_detail are found here, so an empty result means nothing cached matches the filters, not an error. " +
+          "Coverage grows opportunistically as get_match_detail is called on more matches; it is not a full match-history index. " +
+          "Returns the same lightweight shape as get_recent_matches, newest first.",
+        inputSchema: {
+          map: z.string().min(1).optional(),
+          agent: z.string().min(1).optional(),
+          act: z.string().min(1).optional(),
+          rank: z.string().min(1).optional(),
+          date_from: z.string().min(1).optional(),
+          date_to: z.string().min(1).optional(),
+          limit: z.number().int().min(1).max(100).optional(),
+        },
+      },
+      async ({ map, agent, act, rank, date_from, date_to, limit }) => {
+        const envelope = await searchMatchHistory(
+          { cache },
+          { map, agent, act, rank, date_from, date_to, limit: limit ?? 20 },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
       },

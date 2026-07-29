@@ -220,6 +220,7 @@ export const matchByIdSchema = z.object({
       started_at: z.string(),
       game_length_in_ms: z.number(),
       is_completed: z.boolean(),
+      season: seasonRefSchema,
     }),
     players: z.array(matchPlayerSchema),
     teams: z.array(matchTeamSchema),

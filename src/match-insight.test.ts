@@ -88,6 +88,7 @@ function baseMatch(overrides: Partial<Match> = {}): Match {
       started_at: "t1",
       game_length_in_ms: 0,
       is_completed: true,
+      season: { id: "season-1", short: "e11a3" },
     },
     players: [
       buildPlayer({ puuid: OP, team_id: "Red", party_id: "p1" }),

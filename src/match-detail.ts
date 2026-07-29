@@ -3,12 +3,20 @@ import type { ServerConfig } from "./config";
 import { guardTool, type Envelope } from "./envelope";
 import { InputError } from "./errors";
 import { getMatchInsight, type PlayerInsight } from "./match-insight";
+import type { MatchCache } from "./match-cache";
 
 // get_match_detail({ match_id }) — compact selected-match detail. Unlike
 // get_profile/get_recent_matches (inherently scoped to the operator), this tool
 // takes an arbitrary match_id, so it's the first place we must actively enforce
 // the M0 consent-scope decision in code: match-participant data is in-scope only
 // when the operator was a player in that match (ARCHITECTURE.md, 2026-07-28).
+//
+// M3's first cache slice (ARCHITECTURE.md, 2026-07-28 "bounded cache"): every
+// successful call here also write-throughs a row to MatchCache so
+// search_match_history can find it later. The cache write is best-effort —
+// fail-open, logged and swallowed, never surfaced as a tool error — since
+// get_match_detail's own contract (return this match's detail) has already
+// been satisfied by the point the write happens.
 
 export interface MatchPlayerDetail {
   name: string;
@@ -53,6 +61,7 @@ export interface MatchDetail {
 export interface MatchDetailDeps {
   endpoints: Endpoints;
   config: Pick<ServerConfig, "operatorPuuid" | "operatorRegion">;
+  cache?: MatchCache;
 }
 
 export async function getMatchDetail(
@@ -77,7 +86,7 @@ export async function getMatchDetail(
       ? getMatchInsight(match, operatorPuuid)
       : null;
 
-    return {
+    const detail: MatchDetail = {
       match_id: match.metadata.match_id,
       map: match.metadata.map.name,
       mode: match.metadata.queue.name,
@@ -116,5 +125,43 @@ export async function getMatchDetail(
         won: team.won,
       })),
     };
+
+    if (deps.cache) {
+      const operatorPlayer = match.players.find(
+        (player) => player.puuid === operatorPuuid,
+      );
+      const operatorTeam = match.teams.find(
+        (team) => team.team_id === operatorPlayer?.team_id,
+      );
+      try {
+        await deps.cache.upsert({
+          match_id: match.metadata.match_id,
+          map: match.metadata.map.name,
+          mode: match.metadata.queue.name,
+          started_at: match.metadata.started_at,
+          season_id: match.metadata.season.id,
+          season_short: match.metadata.season.short,
+          operator_agent: operatorPlayer?.agent.name ?? null,
+          operator_tier_id: operatorPlayer?.tier.id ?? null,
+          operator_tier_name: operatorPlayer?.tier.name ?? null,
+          operator_score: operatorPlayer?.stats.score ?? null,
+          operator_kills: operatorPlayer?.stats.kills ?? null,
+          operator_deaths: operatorPlayer?.stats.deaths ?? null,
+          operator_assists: operatorPlayer?.stats.assists ?? null,
+          operator_won: operatorTeam?.won ?? null,
+          detail,
+        });
+      } catch (err) {
+        // Best-effort write-through (ARCHITECTURE.md's fail-open decision) —
+        // never let a cache outage fail an otherwise-successful tool call.
+        // Operational metadata only: no player data, no match content.
+        console.error(
+          "match cache write-through failed",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+
+    return detail;
   });
 }

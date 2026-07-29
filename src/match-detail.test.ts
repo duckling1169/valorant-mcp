@@ -16,6 +16,7 @@ const rawMatch = {
     started_at: "t1",
     game_length_in_ms: 2100000,
     is_completed: true,
+    season: { id: "season-1", short: "e11a3" },
   },
   players: [
     {
@@ -146,5 +147,51 @@ describe("getMatchDetail", () => {
     );
     expect(envelope.ok).toBe(false);
     expect(envelope.error?.kind).toBe("upstream");
+  });
+
+  it("write-throughs a cache row derived from the operator's participation", async () => {
+    const upsert = vi.fn(async () => {});
+    const cache = { upsert } as unknown as import("./match-cache").MatchCache;
+    const envelope = await getMatchDetail(
+      { endpoints: fakeEndpoints(), config, cache },
+      { match_id: "match-abc" },
+    );
+    expect(envelope.ok).toBe(true);
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        match_id: "match-abc",
+        map: "Ascent",
+        mode: "Competitive",
+        started_at: "t1",
+        season_id: "season-1",
+        season_short: "e11a3",
+        operator_agent: "Jett",
+        operator_tier_id: 10,
+        operator_tier_name: "Silver 2",
+        operator_score: 250,
+        operator_kills: 20,
+        operator_deaths: 15,
+        operator_assists: 5,
+        operator_won: true,
+      }),
+    );
+  });
+
+  it("still returns ok:true when the cache write-through throws (fail-open)", async () => {
+    const cache = {
+      upsert: vi.fn(async () => {
+        throw new Error("cache is down");
+      }),
+    } as unknown as import("./match-cache").MatchCache;
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const envelope = await getMatchDetail(
+      { endpoints: fakeEndpoints(), config, cache },
+      { match_id: "match-abc" },
+    );
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data?.match_id).toBe("match-abc");
+    consoleError.mockRestore();
   });
 });
