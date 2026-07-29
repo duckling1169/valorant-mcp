@@ -100,6 +100,7 @@ describe("henrik-schemas", () => {
     expect(parsed.data.rounds[0]?.plant?.site).toBe("B");
     expect(parsed.data.kills).toHaveLength(1);
     expect(parsed.data.kills[0]?.weapon.name).toBe("Vandal");
+    expect(parsed.data.players[0]?.platform).toBe("pc");
   });
 
   it("parses a round-player's economy with a null weapon (no weapon purchased that round, confirmed live)", () => {

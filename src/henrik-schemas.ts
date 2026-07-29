@@ -110,6 +110,11 @@ const matchPlayerSchema = z.object({
   tag: z.string(),
   team_id: z.string(),
   party_id: z.string(),
+  // Broader than the "pc"|"console" enum the mmr endpoint's path param takes —
+  // unconfirmed whether HenrikDev reports a more granular console platform
+  // name (e.g. "playstation") here, so this stays a plain string; callers that
+  // need the narrower enum (compare-rank.ts) normalize it themselves.
+  platform: z.string(),
   agent: z.object({ name: z.string().nullable() }),
   tier: tierRefSchema,
   stats: z.object({

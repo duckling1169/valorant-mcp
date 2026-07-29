@@ -7,6 +7,8 @@ import { getProfile } from "@/src/profile";
 import { getRecentMatches } from "@/src/recent-matches";
 import { getMatchDetail } from "@/src/match-detail";
 import { getPlayerStats } from "@/src/player-stats";
+import { compareMatch } from "@/src/compare-match";
+import { compareRank } from "@/src/compare-rank";
 import { verifyToken } from "@/src/verify-token";
 
 // mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
@@ -87,6 +89,44 @@ const mcpHandler = createMcpHandler(
         const envelope = await getPlayerStats(
           { endpoints, config },
           { sample_size: sample_size ?? 20 },
+        );
+        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+      },
+    );
+
+    const compareInputSchema = {
+      match_id: z.string().min(1),
+      opponent_name: z.string().min(1),
+      opponent_tag: z.string().min(1),
+    };
+
+    server.registerTool(
+      "compare_match",
+      {
+        description:
+          "Head-to-head stats for the operator vs. a named opponent (name/tag as shown by get_match_detail) within one shared match. Rejected if either player wasn't a participant in match_id.",
+        inputSchema: compareInputSchema,
+      },
+      async ({ match_id, opponent_name, opponent_tag }) => {
+        const envelope = await compareMatch(
+          { endpoints, config },
+          { match_id, opponent_name, opponent_tag },
+        );
+        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+      },
+    );
+
+    server.registerTool(
+      "compare_rank",
+      {
+        description:
+          "The operator's current rank/RR vs. a named opponent's current rank/RR (live, not their rank at match time). The opponent must be found via a shared match (name/tag as shown by get_match_detail) — never a fresh lookup. Rejected if either player wasn't a participant in match_id.",
+        inputSchema: compareInputSchema,
+      },
+      async ({ match_id, opponent_name, opponent_tag }) => {
+        const envelope = await compareRank(
+          { endpoints, config },
+          { match_id, opponent_name, opponent_tag },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
       },

@@ -15,6 +15,7 @@ function buildPlayer(
     tag: "T1",
     team_id: "Red",
     party_id: "party-default",
+    platform: "pc",
     agent: { name: "Jett" },
     tier: { id: 10, name: "Silver 2" },
     stats: {
