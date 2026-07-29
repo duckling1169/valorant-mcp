@@ -9,6 +9,7 @@ import { getMatchDetail } from "@/src/match-detail";
 import { getPlayerStats } from "@/src/player-stats";
 import { compareMatch } from "@/src/compare-match";
 import { compareRank } from "@/src/compare-rank";
+import { getRankHistory } from "@/src/rank-history";
 import { verifyToken } from "@/src/verify-token";
 
 // mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
@@ -127,6 +128,29 @@ const mcpHandler = createMcpHandler(
         const envelope = await compareRank(
           { endpoints, config },
           { match_id, opponent_name, opponent_tag },
+        );
+        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+      },
+    );
+
+    server.registerTool(
+      "get_rank_history",
+      {
+        description:
+          "The operator's per-match competitive RR/tier trajectory (rank, RR, RR change, elo, derank-protection flag), newest first. Default 20 entries, maximum 50. " +
+          "HenrikDev's underlying mmr-history endpoint has no server-side pagination — every call returns its full available history, and `limit` only truncates that same list. " +
+          "This means calling again with a larger `limit` re-returns entries you already have, byte-for-byte identical (match results are immutable), at full token cost for the overlap. " +
+          "If you already hold rank-history entries from a prior call in this conversation, pass their most-recent match_id as `since_match_id` to get only entries strictly newer than it — avoids re-paying tokens for entries you've already seen. " +
+          "Errors (input) if since_match_id isn't found in the operator's rank history.",
+        inputSchema: {
+          limit: z.number().int().min(1).max(50).optional(),
+          since_match_id: z.string().min(1).optional(),
+        },
+      },
+      async ({ limit, since_match_id }) => {
+        const envelope = await getRankHistory(
+          { endpoints, config },
+          { limit: limit ?? 20, since_match_id },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
       },

@@ -97,7 +97,16 @@ export const mmrHistorySchema = z.object({
   data: z.object({
     history: z.array(
       z.object({
+        tier: tierRefSchema,
+        match_id: z.string(),
+        map: z.object({ name: z.string().nullable() }),
+        season: seasonRefSchema,
+        rr: z.number(),
         last_change: z.number(),
+        elo: z.number(),
+        refunded_rr: z.number(),
+        was_derank_protected: z.boolean(),
+        date: z.string(),
       }),
     ),
   }),
