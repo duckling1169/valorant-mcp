@@ -59,13 +59,16 @@ const mcpHandler = createMcpHandler(
       "get_match_detail",
       {
         description:
-          "Compact detail for one of the operator's own matches (map, per-player stats, final team scores). Rejected if the operator wasn't a participant.",
-        inputSchema: { match_id: z.string().min(1) },
+          "Compact detail for one of the operator's own matches (map, per-player stats, final team scores). Rejected if the operator wasn't a participant. Set include_insight for deeper per-player facets (KAST, trade rate, first bloods, multi-kills, weapon kills/accuracy, attack/defense side splits, economy buckets, plants/defuses, clutch stats) plus match-level party grouping and the operator's lobby percentile — larger response (~3.7x), opt-in.",
+        inputSchema: {
+          match_id: z.string().min(1),
+          include_insight: z.boolean().optional(),
+        },
       },
-      async ({ match_id }) => {
+      async ({ match_id, include_insight }) => {
         const envelope = await getMatchDetail(
           { endpoints, config },
-          { match_id },
+          { match_id, include_insight },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
       },

@@ -2,6 +2,7 @@ import type { Endpoints } from "./endpoints";
 import type { ServerConfig } from "./config";
 import { guardTool, type Envelope } from "./envelope";
 import { InputError } from "./errors";
+import { getMatchInsight, type PlayerInsight } from "./match-insight";
 
 // get_match_detail({ match_id }) — compact selected-match detail. Unlike
 // get_profile/get_recent_matches (inherently scoped to the operator), this tool
@@ -24,6 +25,7 @@ export interface MatchPlayerDetail {
   legshots: number;
   damage_dealt: number;
   damage_received: number;
+  insight?: PlayerInsight;
 }
 
 export interface MatchTeamDetail {
@@ -42,6 +44,10 @@ export interface MatchDetail {
   is_completed: boolean;
   players: MatchPlayerDetail[];
   teams: MatchTeamDetail[];
+  trade_window_ms?: number;
+  economy_thresholds?: { eco: number; semi: number };
+  party?: { operator_party_size: number; other_party_sizes: number[] };
+  operator_lobby_percentile?: { acs: number; adr: number };
 }
 
 export interface MatchDetailDeps {
@@ -51,7 +57,10 @@ export interface MatchDetailDeps {
 
 export async function getMatchDetail(
   deps: MatchDetailDeps,
-  { match_id }: { match_id: string },
+  {
+    match_id,
+    include_insight,
+  }: { match_id: string; include_insight?: boolean },
 ): Promise<Envelope<MatchDetail>> {
   return guardTool(async () => {
     const { operatorPuuid, operatorRegion } = deps.config;
@@ -64,6 +73,10 @@ export async function getMatchDetail(
       throw new InputError("match_id does not include the configured operator");
     }
 
+    const insight = include_insight
+      ? getMatchInsight(match, operatorPuuid)
+      : null;
+
     return {
       match_id: match.metadata.match_id,
       map: match.metadata.map.name,
@@ -71,6 +84,14 @@ export async function getMatchDetail(
       started_at: match.metadata.started_at,
       game_length_in_ms: match.metadata.game_length_in_ms,
       is_completed: match.metadata.is_completed,
+      ...(insight
+        ? {
+            trade_window_ms: insight.trade_window_ms,
+            economy_thresholds: insight.economy_thresholds,
+            party: insight.party,
+            operator_lobby_percentile: insight.operator_lobby_percentile,
+          }
+        : {}),
       players: match.players.map((player) => ({
         name: player.name,
         tag: player.tag,
@@ -86,6 +107,7 @@ export async function getMatchDetail(
         legshots: player.stats.legshots,
         damage_dealt: player.stats.damage.dealt,
         damage_received: player.stats.damage.received,
+        ...(insight ? { insight: insight.players[player.puuid] } : {}),
       })),
       teams: match.teams.map((team) => ({
         team_id: team.team_id,

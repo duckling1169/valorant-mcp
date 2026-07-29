@@ -109,6 +109,7 @@ const matchPlayerSchema = z.object({
   name: z.string(),
   tag: z.string(),
   team_id: z.string(),
+  party_id: z.string(),
   agent: z.object({ name: z.string().nullable() }),
   tier: tierRefSchema,
   stats: z.object({
