@@ -60,6 +60,8 @@ const rawMatch = {
     { team_id: "Red", rounds: { won: 13, lost: 8 }, won: true },
     { team_id: "Blue", rounds: { won: 8, lost: 13 }, won: false },
   ],
+  rounds: [],
+  kills: [],
 };
 
 function fakeEndpoints(match: unknown = rawMatch): Endpoints {
@@ -151,7 +153,10 @@ describe("getMatchDetail", () => {
 
   it("write-throughs a cache row derived from the operator's participation", async () => {
     const upsert = vi.fn(async () => {});
-    const cache = { upsert } as unknown as import("./match-cache").MatchCache;
+    const cache = {
+      upsert,
+      getDetail: vi.fn(async () => null),
+    } as unknown as import("./match-cache").MatchCache;
     const envelope = await getMatchDetail(
       { endpoints: fakeEndpoints(), config, cache },
       { match_id: "match-abc" },
@@ -173,6 +178,7 @@ describe("getMatchDetail", () => {
         operator_deaths: 15,
         operator_assists: 5,
         operator_won: true,
+        has_insight: false,
       }),
     );
   });
@@ -182,6 +188,7 @@ describe("getMatchDetail", () => {
       upsert: vi.fn(async () => {
         throw new Error("cache is down");
       }),
+      getDetail: vi.fn(async () => null),
     } as unknown as import("./match-cache").MatchCache;
     const consoleError = vi
       .spyOn(console, "error")
@@ -193,5 +200,91 @@ describe("getMatchDetail", () => {
     expect(envelope.ok).toBe(true);
     expect(envelope.data?.match_id).toBe("match-abc");
     consoleError.mockRestore();
+  });
+
+  const cachedDetail = {
+    match_id: "match-abc",
+    map: "Ascent",
+    mode: "Competitive",
+    started_at: "t1",
+    game_length_in_ms: 2100000,
+    is_completed: true,
+    players: [],
+    teams: [],
+  };
+
+  it("serves a cache hit without calling HenrikDev when insight isn't requested", async () => {
+    const getMatchById = vi.fn(async () => rawMatch);
+    const endpoints = { getMatchById } as unknown as Endpoints;
+    const cache = {
+      getDetail: vi.fn(async () => ({
+        detail: cachedDetail,
+        has_insight: false,
+      })),
+      upsert: vi.fn(async () => {}),
+    } as unknown as import("./match-cache").MatchCache;
+
+    const envelope = await getMatchDetail(
+      { endpoints, config, cache },
+      { match_id: "match-abc" },
+    );
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data).toEqual(cachedDetail);
+    expect(getMatchById).not.toHaveBeenCalled();
+  });
+
+  it("treats a cache hit without insight as a miss when include_insight is requested", async () => {
+    const cache = {
+      getDetail: vi.fn(async () => ({
+        detail: cachedDetail,
+        has_insight: false,
+      })),
+      upsert: vi.fn(async () => {}),
+    } as unknown as import("./match-cache").MatchCache;
+
+    const envelope = await getMatchDetail(
+      { endpoints: fakeEndpoints(), config, cache },
+      { match_id: "match-abc", include_insight: true },
+    );
+    expect(envelope.ok).toBe(true);
+    // Fell through to the live path (fakeEndpoints), not the cached stub.
+    expect(envelope.data?.players).toHaveLength(2);
+  });
+
+  it("treats a cache lookup failure as a miss (fail-open), falling through to the live path", async () => {
+    const cache = {
+      getDetail: vi.fn(async () => {
+        throw new Error("cache is down");
+      }),
+      upsert: vi.fn(async () => {}),
+    } as unknown as import("./match-cache").MatchCache;
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const envelope = await getMatchDetail(
+      { endpoints: fakeEndpoints(), config, cache },
+      { match_id: "match-abc" },
+    );
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data?.players).toHaveLength(2);
+    consoleError.mockRestore();
+  });
+
+  it("treats a cached detail that fails schema validation as a miss", async () => {
+    const cache = {
+      getDetail: vi.fn(async () => ({
+        detail: { not: "a valid MatchDetail" },
+        has_insight: false,
+      })),
+      upsert: vi.fn(async () => {}),
+    } as unknown as import("./match-cache").MatchCache;
+
+    const envelope = await getMatchDetail(
+      { endpoints: fakeEndpoints(), config, cache },
+      { match_id: "match-abc" },
+    );
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data?.players).toHaveLength(2);
   });
 });

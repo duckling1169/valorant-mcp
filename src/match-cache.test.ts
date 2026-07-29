@@ -20,6 +20,7 @@ interface FakeBuilder {
   lte: ReturnType<typeof vi.fn>;
   lt: ReturnType<typeof vi.fn>;
   in: ReturnType<typeof vi.fn>;
+  maybeSingle: ReturnType<typeof vi.fn>;
   then: (resolve: (r: FakeResult) => void) => Promise<void>;
 }
 
@@ -49,6 +50,7 @@ function fakeClient(results: FakeResult[]): {
     builder.lte = vi.fn(chain);
     builder.lt = vi.fn(chain);
     builder.in = vi.fn(chain);
+    builder.maybeSingle = vi.fn(chain);
     builder.then = (resolve: (r: FakeResult) => void) =>
       Promise.resolve(result).then(resolve);
     builders.push(builder);
@@ -72,6 +74,7 @@ const row: NewCachedMatchRow = {
   operator_deaths: 15,
   operator_assists: 5,
   operator_won: true,
+  has_insight: false,
   detail: { match_id: "match-1" },
 };
 
@@ -147,6 +150,35 @@ describe("MatchCache.search", () => {
     ]);
     await expect(new MatchCache(client).search({ limit: 20 })).rejects.toThrow(
       SchemaError,
+    );
+  });
+});
+
+describe("MatchCache.getDetail", () => {
+  it("returns detail + has_insight when a row exists", async () => {
+    const { client } = fakeClient([
+      {
+        data: { detail: { match_id: "match-1" }, has_insight: true },
+        error: null,
+      },
+    ]);
+    const result = await new MatchCache(client).getDetail("match-1");
+    expect(result).toEqual({
+      detail: { match_id: "match-1" },
+      has_insight: true,
+    });
+  });
+
+  it("returns null when no row exists", async () => {
+    const { client } = fakeClient([{ data: null, error: null }]);
+    const result = await new MatchCache(client).getDetail("match-1");
+    expect(result).toBeNull();
+  });
+
+  it("throws UpstreamError when the lookup fails", async () => {
+    const { client } = fakeClient([{ error: { message: "boom" } }]);
+    await expect(new MatchCache(client).getDetail("match-1")).rejects.toThrow(
+      UpstreamError,
     );
   });
 });

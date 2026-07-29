@@ -6,7 +6,10 @@ import { SchemaError, UpstreamError } from "./errors";
 // "bounded cache" decision). This first M3 slice: only get_match_detail writes
 // (search_match_history only reads); retention is two independent caps (100
 // rows, 90 days by cached_at) enforced synchronously after every write, not by
-// a scheduled job.
+// a scheduled job. Slice 2 adds getDetail for get_match_detail's read-through:
+// has_insight makes explicit whether a row's stored `detail` was written with
+// include_insight, since a request for insight can only be satisfied by a row
+// that has it (match-detail.ts's cache-hit rule).
 
 const RETENTION_MAX_ROWS = 100;
 const RETENTION_MAX_AGE_DAYS = 90;
@@ -27,9 +30,15 @@ export interface NewCachedMatchRow {
   operator_deaths: number | null;
   operator_assists: number | null;
   operator_won: boolean | null;
-  // Verbatim get_match_detail response — kept for a future read-through
-  // cache-hit path (deferred; not read by anything in this slice).
+  has_insight: boolean;
+  // Verbatim get_match_detail response — served back on a read-through
+  // cache hit (match-detail.ts validates it against MatchDetail's shape).
   detail: unknown;
+}
+
+export interface CachedDetail {
+  detail: unknown;
+  has_insight: boolean;
 }
 
 const cachedMatchRowSchema = z.object({
@@ -73,6 +82,25 @@ export class MatchCache {
       throw new UpstreamError(`cache upsert failed: ${error.message}`);
     }
     await this.evict();
+  }
+
+  /** Look up one row's stored detail + insight flag by match_id. Returns null
+   * on no row; throws on any Postgres error — callers that want read-through
+   * to be best-effort (get_match_detail) must catch and treat as a miss, per
+   * ARCHITECTURE.md's fail-open cache decision. */
+  async getDetail(matchId: string): Promise<CachedDetail | null> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select("detail, has_insight")
+      .eq("match_id", matchId)
+      .maybeSingle();
+    if (error) {
+      throw new UpstreamError(`cache detail lookup failed: ${error.message}`);
+    }
+    if (!data) return null;
+    return z
+      .object({ detail: z.unknown(), has_insight: z.boolean() })
+      .parse(data);
   }
 
   private async evict(): Promise<void> {
