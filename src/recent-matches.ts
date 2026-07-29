@@ -1,6 +1,7 @@
 import type { Endpoints } from "./endpoints";
 import type { ServerConfig } from "./config";
 import { guardTool, type Envelope } from "./envelope";
+import { tierName } from "./tiers";
 
 // get_recent_matches({ limit? }) — recent competitive matches only, bound to the
 // one configured operator profile. `limit` is validated by the MCP tool's declared
@@ -13,7 +14,7 @@ export interface RecentMatch {
   mode: string;
   started_at: string;
   agent: string | null;
-  tier: number;
+  tier: { id: number; name: string | null };
   score: number;
   kills: number;
   deaths: number;
@@ -61,7 +62,7 @@ export async function getRecentMatches(
         mode: match.meta.mode,
         started_at: match.meta.started_at,
         agent: match.stats.character.name,
-        tier: match.stats.tier,
+        tier: { id: match.stats.tier, name: tierName(match.stats.tier) },
         score: match.stats.score,
         kills: match.stats.kills,
         deaths: match.stats.deaths,
