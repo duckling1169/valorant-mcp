@@ -102,6 +102,19 @@ describe("henrik-schemas", () => {
     expect(parsed.data.kills[0]?.weapon.name).toBe("Vandal");
   });
 
+  it("parses a round-player's economy with a null weapon (no weapon purchased that round, confirmed live)", () => {
+    const body = loadFixture("match-v4.json") as {
+      data: {
+        rounds: Array<{ stats: Array<{ economy: { weapon: unknown } }> }>;
+      };
+    };
+    const firstRoundStats = body.data.rounds[0]?.stats[0];
+    if (!firstRoundStats) throw new Error("fixture missing first round stats");
+    firstRoundStats.economy.weapon = null;
+    const parsed = parseHenrikPayload(matchByIdSchema, body);
+    expect(parsed.data.rounds[0]?.stats[0]?.economy.weapon).toBeNull();
+  });
+
   it("fails closed with SchemaError when a round's economy data is missing", () => {
     const body = loadFixture("match-v4.json") as {
       data: { rounds: Array<{ stats: Array<{ economy: unknown }> }> };

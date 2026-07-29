@@ -163,7 +163,7 @@ const roundStatsSchema = z.object({
   }),
   economy: z.object({
     loadout_value: z.number(),
-    weapon: weaponRefSchema,
+    weapon: weaponRefSchema.nullable(),
   }),
 });
 
