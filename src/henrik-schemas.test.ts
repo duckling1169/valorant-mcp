@@ -6,6 +6,7 @@ import {
   mmrByPuuidSchema,
   storedMatchesSchema,
   matchByIdSchema,
+  mmrHistorySchema,
   parseHenrikPayload,
 } from "./henrik-schemas";
 import { SchemaError } from "./errors";
@@ -62,6 +63,20 @@ describe("henrik-schemas", () => {
     const parsed = parseHenrikPayload(storedMatchesSchema, body);
     expect(parsed.data).toHaveLength(2);
     expect(parsed.data[0]?.meta.map.name).toBe("Ascent");
+    expect(parsed.data[0]?.stats.shots.head).toBe(10);
+    expect(parsed.data[0]?.stats.damage.made).toBe(4000);
+  });
+
+  it("fails closed with SchemaError when a stored-matches damage field is missing", () => {
+    const body = loadFixture("stored-matches-v1.json") as {
+      data: Array<{ stats: Record<string, unknown> }>;
+    };
+    const first = body.data[0];
+    if (!first) throw new Error("fixture missing first match");
+    delete first.stats.damage;
+    expect(() => parseHenrikPayload(storedMatchesSchema, body)).toThrow(
+      SchemaError,
+    );
   });
 
   it("fails closed with SchemaError when a stored-matches field is missing", () => {
@@ -119,6 +134,25 @@ describe("henrik-schemas", () => {
     if (!firstTeam) throw new Error("fixture missing first team");
     delete firstTeam.won;
     expect(() => parseHenrikPayload(matchByIdSchema, body)).toThrow(
+      SchemaError,
+    );
+  });
+
+  it("parses a valid mmr-history-v2 fixture", () => {
+    const body = loadFixture("mmr-history-v2.json");
+    const parsed = parseHenrikPayload(mmrHistorySchema, body);
+    expect(parsed.data.history).toHaveLength(2);
+    expect(parsed.data.history[0]?.last_change).toBe(12);
+  });
+
+  it("fails closed with SchemaError when an mmr-history entry's last_change is missing", () => {
+    const body = loadFixture("mmr-history-v2.json") as {
+      data: { history: Array<Record<string, unknown>> };
+    };
+    const first = body.data.history[0];
+    if (!first) throw new Error("fixture missing first history entry");
+    delete first.last_change;
+    expect(() => parseHenrikPayload(mmrHistorySchema, body)).toThrow(
       SchemaError,
     );
   });

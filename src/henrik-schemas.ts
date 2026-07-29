@@ -70,6 +70,15 @@ const storedMatchItemSchema = z.object({
     kills: z.number(),
     deaths: z.number(),
     assists: z.number(),
+    shots: z.object({
+      head: z.number(),
+      body: z.number(),
+      leg: z.number(),
+    }),
+    damage: z.object({
+      made: z.number(),
+      received: z.number(),
+    }),
   }),
   teams: z.object({
     red: z.number().nullable(),
@@ -82,6 +91,18 @@ export const storedMatchesSchema = z.object({
   data: z.array(storedMatchItemSchema),
 });
 export type StoredMatchesResponse = z.infer<typeof storedMatchesSchema>;
+
+export const mmrHistorySchema = z.object({
+  status: z.number(),
+  data: z.object({
+    history: z.array(
+      z.object({
+        last_change: z.number(),
+      }),
+    ),
+  }),
+});
+export type MmrHistoryResponse = z.infer<typeof mmrHistorySchema>;
 
 const matchPlayerSchema = z.object({
   puuid: z.string(),

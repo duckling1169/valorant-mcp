@@ -26,7 +26,7 @@
         "deaths": 15,
         "assists": 5,
         "shots": { "head": 10, "body": 20, "leg": 2 },
-        "damage": { "dealt": 4000, "received": 3000 }
+        "damage": { "made": 4000, "received": 3000 }
       },
       "teams": { "red": 13, "blue": 8 }
     },
@@ -52,7 +52,7 @@
         "deaths": 18,
         "assists": 8,
         "shots": { "head": 5, "body": 15, "leg": 1 },
-        "damage": { "dealt": 2800, "received": 3500 }
+        "damage": { "made": 2800, "received": 3500 }
       },
       "teams": { "red": 13, "blue": 7 }
     }

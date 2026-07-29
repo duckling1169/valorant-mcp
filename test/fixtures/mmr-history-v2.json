@@ -1,0 +1,36 @@
+{
+  "status": 200,
+  "data": {
+    "account": {
+      "puuid": "00000000-0000-0000-0000-000000000000",
+      "name": "testname",
+      "tag": "TEST"
+    },
+    "history": [
+      {
+        "tier": { "id": 10, "name": "Silver 2" },
+        "match_id": "match-1",
+        "map": { "id": "map-id-1", "name": "Ascent" },
+        "season": { "id": "season-1", "short": "e11a3" },
+        "rr": 45,
+        "last_change": 12,
+        "elo": 745,
+        "refunded_rr": 0,
+        "was_derank_protected": false,
+        "date": "2026-07-20T00:00:00Z"
+      },
+      {
+        "tier": { "id": 10, "name": "Silver 2" },
+        "match_id": "match-2",
+        "map": { "id": "map-id-2", "name": "Bind" },
+        "season": { "id": "season-1", "short": "e11a3" },
+        "rr": 33,
+        "last_change": -18,
+        "elo": 733,
+        "refunded_rr": 0,
+        "was_derank_protected": false,
+        "date": "2026-07-19T00:00:00Z"
+      }
+    ]
+  }
+}

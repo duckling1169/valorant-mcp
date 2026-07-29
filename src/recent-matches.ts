@@ -31,7 +31,7 @@ export interface RecentMatchesDeps {
   config: Pick<ServerConfig, "operatorPuuid" | "operatorRegion">;
 }
 
-function computeWon(
+export function computeWon(
   team: string,
   red: number | null,
   blue: number | null,

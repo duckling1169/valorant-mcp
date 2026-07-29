@@ -6,6 +6,7 @@ import { Endpoints } from "@/src/endpoints";
 import { getProfile } from "@/src/profile";
 import { getRecentMatches } from "@/src/recent-matches";
 import { getMatchDetail } from "@/src/match-detail";
+import { getPlayerStats } from "@/src/player-stats";
 import { verifyToken } from "@/src/verify-token";
 
 // mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
@@ -65,6 +66,24 @@ const mcpHandler = createMcpHandler(
         const envelope = await getMatchDetail(
           { endpoints, config },
           { match_id },
+        );
+        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+      },
+    );
+
+    server.registerTool(
+      "get_player_stats",
+      {
+        description:
+          "Pooled descriptive stats across the operator's recent competitive matches: ACS/ADR/KDA/headshot % distributions with trend, survival rate, per-agent breakdown, rank/RR/peak/climb, and best/worst game (default 20 matches, maximum 50).",
+        inputSchema: {
+          sample_size: z.number().int().min(5).max(50).optional(),
+        },
+      },
+      async ({ sample_size }) => {
+        const envelope = await getPlayerStats(
+          { endpoints, config },
+          { sample_size: sample_size ?? 20 },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
       },
