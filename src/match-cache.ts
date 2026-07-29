@@ -10,6 +10,13 @@ import { SchemaError, UpstreamError } from "./errors";
 // has_insight makes explicit whether a row's stored `detail` was written with
 // include_insight, since a request for insight can only be satisfied by a row
 // that has it (match-detail.ts's cache-hit rule).
+//
+// Slice 3 widens write-through to get_recent_matches/get_player_stats via
+// insertLightMatches: a "light" row from stored-matches (operator's own stat
+// line only, no full player roster) can never be a valid MatchDetail, so it
+// never overwrites an existing row (light or full) — it only fills gaps
+// (`ON CONFLICT (match_id) DO NOTHING`, via ignoreDuplicates). Eviction stays
+// uniform cached_at-FIFO across light and full rows (no two-tier priority).
 
 const RETENTION_MAX_ROWS = 100;
 const RETENTION_MAX_AGE_DAYS = 90;
@@ -39,6 +46,23 @@ export interface NewCachedMatchRow {
 export interface CachedDetail {
   detail: unknown;
   has_insight: boolean;
+}
+
+export interface NewLightCachedMatchRow {
+  match_id: string;
+  map: string | null;
+  mode: string | null;
+  started_at: string;
+  season_id: string | null;
+  season_short: string | null;
+  operator_agent: string | null;
+  operator_tier_id: number | null;
+  operator_tier_name: string | null;
+  operator_score: number | null;
+  operator_kills: number | null;
+  operator_deaths: number | null;
+  operator_assists: number | null;
+  operator_won: boolean | null;
 }
 
 const cachedMatchRowSchema = z.object({
@@ -101,6 +125,30 @@ export class MatchCache {
     return z
       .object({ detail: z.unknown(), has_insight: z.boolean() })
       .parse(data);
+  }
+
+  /** Batch-insert light rows (from stored-matches), skipping any match_id
+   * that already has a row — light data never overwrites, light or full
+   * (ARCHITECTURE.md's slice-3 decision). One eviction pass for the whole
+   * batch, not one per row. Throws on any Postgres error — callers (
+   * get_recent_matches/get_player_stats) must catch and swallow, same
+   * fail-open contract as upsert(). */
+  async insertLightMatches(rows: NewLightCachedMatchRow[]): Promise<void> {
+    if (rows.length === 0) return;
+    const cachedAt = new Date().toISOString();
+    const { error } = await this.client.from(TABLE).upsert(
+      rows.map((row) => ({
+        ...row,
+        has_insight: false,
+        detail: null,
+        cached_at: cachedAt,
+      })),
+      { onConflict: "match_id", ignoreDuplicates: true },
+    );
+    if (error) {
+      throw new UpstreamError(`cache light-insert failed: ${error.message}`);
+    }
+    await this.evict();
   }
 
   private async evict(): Promise<void> {

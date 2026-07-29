@@ -61,6 +61,7 @@ const storedMatchItemSchema = z.object({
     map: z.object({ name: z.string().nullable() }),
     mode: z.string(),
     started_at: z.string(),
+    season: seasonRefSchema,
   }),
   stats: z.object({
     team: z.string(),

@@ -1,8 +1,9 @@
 import type { Endpoints } from "./endpoints";
 import type { ServerConfig } from "./config";
 import { guardTool, type Envelope } from "./envelope";
-import { computeWon } from "./recent-matches";
+import { computeWon, toLightCachedMatchRow } from "./recent-matches";
 import { agentRole, type AgentRole } from "./agent-roles";
+import type { MatchCache } from "./match-cache";
 
 // get_player_stats({ sample_size? }) — pooled descriptive stats across the
 // operator's recent competitive matches (M2's T1 facets: impact distributions,
@@ -63,6 +64,7 @@ export interface PlayerStatsDeps {
     ServerConfig,
     "operatorPuuid" | "operatorRegion" | "operatorPlatform"
   >;
+  cache?: MatchCache;
 }
 
 interface DerivedMatch {
@@ -123,6 +125,18 @@ export async function getPlayerStats(
         operatorPuuid,
       ),
     ]);
+
+    if (deps.cache) {
+      try {
+        await deps.cache.insertLightMatches(matches.map(toLightCachedMatchRow));
+      } catch (err) {
+        // Best-effort write-through (ARCHITECTURE.md's fail-open decision).
+        console.error(
+          "match cache light write-through failed",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
 
     const derived: DerivedMatch[] = matches.map((match) => {
       const rounds = (match.teams.red ?? 0) + (match.teams.blue ?? 0);

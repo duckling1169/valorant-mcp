@@ -55,7 +55,7 @@ const mcpHandler = createMcpHandler(
       },
       async ({ limit }) => {
         const envelope = await getRecentMatches(
-          { endpoints, config },
+          { endpoints, config, cache },
           { limit: limit ?? 10 },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
@@ -92,7 +92,7 @@ const mcpHandler = createMcpHandler(
       },
       async ({ sample_size }) => {
         const envelope = await getPlayerStats(
-          { endpoints, config },
+          { endpoints, config, cache },
           { sample_size: sample_size ?? 20 },
         );
         return { content: [{ type: "text", text: JSON.stringify(envelope) }] };

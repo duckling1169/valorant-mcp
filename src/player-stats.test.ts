@@ -32,6 +32,7 @@ function rawMatch(overrides: {
       map: { name: overrides.map ?? "Ascent" },
       mode: "competitive",
       started_at: overrides.started_at,
+      season: { id: "season-1", short: "e11a3" },
     },
     stats: {
       team: overrides.team,
@@ -185,5 +186,39 @@ describe("getPlayerStats", () => {
     );
     expect(envelope.ok).toBe(false);
     expect(envelope.error?.kind).toBe("upstream");
+  });
+
+  it("write-throughs light cache rows for every fetched match", async () => {
+    const insertLightMatches = vi.fn(async () => {});
+    const cache = {
+      insertLightMatches,
+    } as unknown as import("./match-cache").MatchCache;
+    const envelope = await getPlayerStats(
+      { endpoints: fakeEndpoints(), config, cache },
+      { sample_size: 20 },
+    );
+    expect(envelope.ok).toBe(true);
+    expect(insertLightMatches).toHaveBeenCalledWith([
+      expect.objectContaining({ match_id: "match-1" }),
+      expect.objectContaining({ match_id: "match-2" }),
+      expect.objectContaining({ match_id: "match-3" }),
+    ]);
+  });
+
+  it("still returns ok:true when the light write-through throws (fail-open)", async () => {
+    const cache = {
+      insertLightMatches: vi.fn(async () => {
+        throw new Error("cache is down");
+      }),
+    } as unknown as import("./match-cache").MatchCache;
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const envelope = await getPlayerStats(
+      { endpoints: fakeEndpoints(), config, cache },
+      { sample_size: 20 },
+    );
+    expect(envelope.ok).toBe(true);
+    consoleError.mockRestore();
   });
 });

@@ -154,6 +154,60 @@ describe("MatchCache.search", () => {
   });
 });
 
+const lightRow = {
+  match_id: "match-2",
+  map: "Bind",
+  mode: "Competitive",
+  started_at: "2026-07-19T00:00:00Z",
+  season_id: "season-1",
+  season_short: "e11a3",
+  operator_agent: "Omen",
+  operator_tier_id: 10,
+  operator_tier_name: "Silver 2",
+  operator_score: 180,
+  operator_kills: 12,
+  operator_deaths: 18,
+  operator_assists: 8,
+  operator_won: false,
+};
+
+describe("MatchCache.insertLightMatches", () => {
+  it("does nothing for an empty batch (no from() call)", async () => {
+    const { client } = fakeClient([]);
+    await new MatchCache(client).insertLightMatches([]);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("upserts with ignoreDuplicates and evicts once for the whole batch", async () => {
+    const { client, builders } = fakeClient([
+      { error: null }, // batch upsert
+      { error: null }, // age-based delete
+      { data: [{ match_id: "match-2" }], error: null }, // list for count eviction
+    ]);
+    await new MatchCache(client).insertLightMatches([lightRow]);
+    expect(client.from).toHaveBeenCalledTimes(3);
+    const upsertBuilder = builders[0];
+    if (!upsertBuilder) throw new Error("expected an upsert builder call");
+    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          match_id: "match-2",
+          has_insight: false,
+          detail: null,
+        }),
+      ],
+      { onConflict: "match_id", ignoreDuplicates: true },
+    );
+  });
+
+  it("throws UpstreamError when the batch upsert fails", async () => {
+    const { client } = fakeClient([{ error: { message: "boom" } }]);
+    await expect(
+      new MatchCache(client).insertLightMatches([lightRow]),
+    ).rejects.toThrow(UpstreamError);
+  });
+});
+
 describe("MatchCache.getDetail", () => {
   it("returns detail + has_insight when a row exists", async () => {
     const { client } = fakeClient([
