@@ -1,8 +1,9 @@
 import type { Endpoints } from "./endpoints";
-import type { ServerConfig, Platform } from "./config";
+import type { Platform } from "./config";
+import type { OperatorIdentity } from "./identity";
 import { guardTool, type Envelope } from "./envelope";
 import { InputError } from "./errors";
-import { findOpponent } from "./compare-match";
+import { findOpponent, requireOperatorParticipant } from "./compare-match";
 
 // HenrikDev's mmr endpoint only accepts "pc"|"console", but the raw match
 // player's platform field is unconfirmed to be that narrow (may report a more
@@ -34,10 +35,7 @@ export interface RankCompare {
 
 export interface CompareRankDeps {
   endpoints: Endpoints;
-  config: Pick<
-    ServerConfig,
-    "operatorPuuid" | "operatorRegion" | "operatorPlatform"
-  >;
+  config: OperatorIdentity;
 }
 
 export async function compareRank(
@@ -51,13 +49,7 @@ export async function compareRank(
   return guardTool(async () => {
     const { operatorPuuid, operatorRegion, operatorPlatform } = deps.config;
     const match = await deps.endpoints.getMatchById(operatorRegion, match_id);
-
-    const operatorInMatch = match.players.some(
-      (p) => p.puuid === operatorPuuid,
-    );
-    if (!operatorInMatch) {
-      throw new InputError("match_id does not include the configured operator");
-    }
+    requireOperatorParticipant(match, operatorPuuid);
 
     const opponent = findOpponent(match, opponent_name, opponent_tag);
     if (!opponent) {

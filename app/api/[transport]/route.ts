@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { loadConfig } from "@/src/config";
 import { HenrikClient } from "@/src/henrik-client";
 import { Endpoints } from "@/src/endpoints";
@@ -10,23 +11,54 @@ import { getPlayerStats } from "@/src/player-stats";
 import { compareMatch } from "@/src/compare-match";
 import { compareRank } from "@/src/compare-rank";
 import { getRankHistory } from "@/src/rank-history";
-import { createCacheClient } from "@/src/supabase-cache-client";
+import { createServiceClient } from "@/src/supabase-service-client";
 import { MatchCache } from "@/src/match-cache";
 import { searchMatchHistory } from "@/src/search-match-history";
 import { verifyToken } from "@/src/verify-token";
+import { resolveIdentity } from "@/src/identity";
+import { resolveTarget } from "@/src/target";
 
 // mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
 // it dispatches on the actual path itself (mcp/sse/message); `basePath` only tells
 // it what prefix to assume for URLs it constructs internally. SSE is disabled: the
 // MCP spec deprecated it (2025-03-26) and we only need streamable HTTP.
 //
-// Bound to the one operator profile configured via env (ARCHITECTURE.md's
-// PUUID-binding decision) — constructed once at module scope and reused across
-// warm serverless invocations.
+// M4: the operator identity is no longer bound at module scope — it's resolved
+// per-request from the caller's AuthInfo (verify-token.ts, identity.ts), so the
+// same deployed server can serve any consented mcp_users row. Only the
+// HenrikDev client and cache client are shared across all requests/users.
 const config = loadConfig(process.env);
 const client = new HenrikClient({ apiKey: config.henrikApiKey });
 const endpoints = new Endpoints(client);
-const cache = new MatchCache(createCacheClient());
+const serviceClient = createServiceClient();
+const cache = new MatchCache(serviceClient);
+
+// M4 slice 4: any tool taking this input may act on a consented profile
+// (List 2) instead of the caller's own identity — resolved only against
+// consented_profiles, never a live HenrikDev name/tag lookup.
+const targetInputSchema = {
+  target_name: z.string().min(1).optional(),
+  target_tag: z.string().min(1).optional(),
+};
+
+/** Every registerTool callback wraps its envelope the same way — MCP's
+ * CallToolResult content array, one text block of the JSON-stringified
+ * envelope (ARCHITECTURE.md: "return stable structured JSON from MCP tools"). */
+function toToolResult(envelope: unknown): {
+  content: [{ type: "text"; text: string }];
+} {
+  return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+}
+
+/** Every target-widened tool resolves the caller's own identity, then swaps
+ * in a consented target's identity if target_name/target_tag were given. */
+async function resolveEffectiveIdentity(
+  extra: { authInfo?: AuthInfo },
+  target: { target_name?: string; target_tag?: string },
+) {
+  const self = resolveIdentity(extra.authInfo);
+  return resolveTarget(serviceClient, self, target);
+}
 
 const mcpHandler = createMcpHandler(
   (server) => {
@@ -34,15 +66,16 @@ const mcpHandler = createMcpHandler(
       "get_profile",
       {
         description:
-          "The operator's own VALORANT account profile and current/peak competitive rank. No arguments.",
+          "The operator's own VALORANT account profile and current/peak competitive rank. Pass target_name/target_tag together to look up a consented friend's profile instead — rejected if that name/tag hasn't consented.",
+        inputSchema: targetInputSchema,
       },
-      async () => {
-        const envelope = await getProfile({ endpoints, config });
-        // The envelope (ok/error.kind) is our own application-level contract, not
-        // an MCP protocol error — a "rate" or "upstream" result is a legitimate,
-        // well-typed outcome for the client model to read, not a thrown exception
-        // (ARCHITECTURE.md: "return stable structured JSON from MCP tools").
-        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+      async ({ target_name, target_tag }, extra) => {
+        const identity = await resolveEffectiveIdentity(extra, {
+          target_name,
+          target_tag,
+        });
+        const envelope = await getProfile({ endpoints, config: identity });
+        return toToolResult(envelope);
       },
     );
 
@@ -50,15 +83,22 @@ const mcpHandler = createMcpHandler(
       "get_recent_matches",
       {
         description:
-          "The operator's recent competitive VALORANT matches (default 10, maximum 10).",
-        inputSchema: { limit: z.number().int().min(1).max(10).optional() },
+          "The operator's recent competitive VALORANT matches (default 10, maximum 10). Pass target_name/target_tag together to look up a consented friend's matches instead — rejected if that name/tag hasn't consented.",
+        inputSchema: {
+          limit: z.number().int().min(1).max(10).optional(),
+          ...targetInputSchema,
+        },
       },
-      async ({ limit }) => {
+      async ({ limit, target_name, target_tag }, extra) => {
+        const identity = await resolveEffectiveIdentity(extra, {
+          target_name,
+          target_tag,
+        });
         const envelope = await getRecentMatches(
-          { endpoints, config, cache },
+          { endpoints, config: identity, cache },
           { limit: limit ?? 10 },
         );
-        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+        return toToolResult(envelope);
       },
     );
 
@@ -66,18 +106,23 @@ const mcpHandler = createMcpHandler(
       "get_match_detail",
       {
         description:
-          "Compact detail for one of the operator's own matches (map, per-player stats, final team scores). Rejected if the operator wasn't a participant. Set include_insight for deeper per-player facets (KAST, trade rate, first bloods, multi-kills, weapon kills/accuracy, attack/defense side splits, economy buckets, plants/defuses, clutch stats) plus match-level party grouping and the operator's lobby percentile — larger response (~3.7x), opt-in.",
+          "Compact detail for one of the operator's own matches (map, per-player stats, final team scores). Rejected if the operator wasn't a participant. Set include_insight for deeper per-player facets (KAST, trade rate, first bloods, multi-kills, weapon kills/accuracy, attack/defense side splits, economy buckets, plants/defuses, clutch stats) plus match-level party grouping and the operator's lobby percentile — larger response (~3.7x), opt-in. Pass target_name/target_tag together to check a consented friend's participation instead — rejected if that name/tag hasn't consented.",
         inputSchema: {
           match_id: z.string().min(1),
           include_insight: z.boolean().optional(),
+          ...targetInputSchema,
         },
       },
-      async ({ match_id, include_insight }) => {
+      async ({ match_id, include_insight, target_name, target_tag }, extra) => {
+        const identity = await resolveEffectiveIdentity(extra, {
+          target_name,
+          target_tag,
+        });
         const envelope = await getMatchDetail(
-          { endpoints, config, cache },
+          { endpoints, config: identity, cache },
           { match_id, include_insight },
         );
-        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+        return toToolResult(envelope);
       },
     );
 
@@ -85,17 +130,22 @@ const mcpHandler = createMcpHandler(
       "get_player_stats",
       {
         description:
-          "Pooled descriptive stats across the operator's recent competitive matches: ACS/ADR/KDA/headshot % distributions with trend, survival rate, per-agent breakdown, rank/RR/peak/climb, and best/worst game (default 20 matches, maximum 50).",
+          "Pooled descriptive stats across the operator's recent competitive matches: ACS/ADR/KDA/headshot % distributions with trend, survival rate, per-agent breakdown, rank/RR/peak/climb, and best/worst game (default 20 matches, maximum 50). Pass target_name/target_tag together to look up a consented friend's stats instead — rejected if that name/tag hasn't consented.",
         inputSchema: {
           sample_size: z.number().int().min(5).max(50).optional(),
+          ...targetInputSchema,
         },
       },
-      async ({ sample_size }) => {
+      async ({ sample_size, target_name, target_tag }, extra) => {
+        const identity = await resolveEffectiveIdentity(extra, {
+          target_name,
+          target_tag,
+        });
         const envelope = await getPlayerStats(
-          { endpoints, config, cache },
+          { endpoints, config: identity, cache },
           { sample_size: sample_size ?? 20 },
         );
-        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+        return toToolResult(envelope);
       },
     );
 
@@ -112,12 +162,13 @@ const mcpHandler = createMcpHandler(
           "Head-to-head stats for the operator vs. a named opponent (name/tag as shown by get_match_detail) within one shared match. Rejected if either player wasn't a participant in match_id.",
         inputSchema: compareInputSchema,
       },
-      async ({ match_id, opponent_name, opponent_tag }) => {
+      async ({ match_id, opponent_name, opponent_tag }, extra) => {
+        const identity = resolveIdentity(extra.authInfo);
         const envelope = await compareMatch(
-          { endpoints, config },
+          { endpoints, config: identity },
           { match_id, opponent_name, opponent_tag },
         );
-        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+        return toToolResult(envelope);
       },
     );
 
@@ -128,12 +179,13 @@ const mcpHandler = createMcpHandler(
           "The operator's current rank/RR vs. a named opponent's current rank/RR (live, not their rank at match time). The opponent must be found via a shared match (name/tag as shown by get_match_detail) — never a fresh lookup. Rejected if either player wasn't a participant in match_id.",
         inputSchema: compareInputSchema,
       },
-      async ({ match_id, opponent_name, opponent_tag }) => {
+      async ({ match_id, opponent_name, opponent_tag }, extra) => {
+        const identity = resolveIdentity(extra.authInfo);
         const envelope = await compareRank(
-          { endpoints, config },
+          { endpoints, config: identity },
           { match_id, opponent_name, opponent_tag },
         );
-        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+        return toToolResult(envelope);
       },
     );
 
@@ -145,18 +197,24 @@ const mcpHandler = createMcpHandler(
           "HenrikDev's underlying mmr-history endpoint has no server-side pagination — every call returns its full available history, and `limit` only truncates that same list. " +
           "This means calling again with a larger `limit` re-returns entries you already have, byte-for-byte identical (match results are immutable), at full token cost for the overlap. " +
           "If you already hold rank-history entries from a prior call in this conversation, pass their most-recent match_id as `since_match_id` to get only entries strictly newer than it — avoids re-paying tokens for entries you've already seen. " +
-          "Errors (input) if since_match_id isn't found in the operator's rank history.",
+          "Errors (input) if since_match_id isn't found in the operator's rank history. " +
+          "Pass target_name/target_tag together to look up a consented friend's rank history instead — rejected if that name/tag hasn't consented.",
         inputSchema: {
           limit: z.number().int().min(1).max(50).optional(),
           since_match_id: z.string().min(1).optional(),
+          ...targetInputSchema,
         },
       },
-      async ({ limit, since_match_id }) => {
+      async ({ limit, since_match_id, target_name, target_tag }, extra) => {
+        const identity = await resolveEffectiveIdentity(extra, {
+          target_name,
+          target_tag,
+        });
         const envelope = await getRankHistory(
-          { endpoints, config },
+          { endpoints, config: identity },
           { limit: limit ?? 20, since_match_id },
         );
-        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+        return toToolResult(envelope);
       },
     );
 
@@ -178,12 +236,13 @@ const mcpHandler = createMcpHandler(
           limit: z.number().int().min(1).max(100).optional(),
         },
       },
-      async ({ map, agent, act, rank, date_from, date_to, limit }) => {
+      async ({ map, agent, act, rank, date_from, date_to, limit }, extra) => {
+        const identity = resolveIdentity(extra.authInfo);
         const envelope = await searchMatchHistory(
-          { cache },
+          { cache, config: identity },
           { map, agent, act, rank, date_from, date_to, limit: limit ?? 20 },
         );
-        return { content: [{ type: "text", text: JSON.stringify(envelope) }] };
+        return toToolResult(envelope);
       },
     );
   },

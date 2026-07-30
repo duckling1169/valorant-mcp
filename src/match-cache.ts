@@ -15,12 +15,32 @@ import { SchemaError, UpstreamError } from "./errors";
 // insertLightMatches: a "light" row from stored-matches (operator's own stat
 // line only, no full player roster) can never be a valid MatchDetail, so it
 // never overwrites an existing row (light or full) — it only fills gaps
-// (`ON CONFLICT (match_id) DO NOTHING`, via ignoreDuplicates). Eviction stays
-// uniform cached_at-FIFO across light and full rows (no two-tier priority).
+// (`ON CONFLICT (operator_puuid, match_id) DO NOTHING`, via ignoreDuplicates).
+// Eviction stays uniform cached_at-FIFO across light and full rows (no
+// two-tier priority).
+//
+// M4 slice 2: every method takes operatorPuuid, and the table's primary key
+// is (operator_puuid, match_id), not match_id alone — a lookup scoped to one
+// operator can only ever find rows that operator itself wrote. This is what
+// makes the read-through in match-detail.ts safe for a second real user:
+// without it, a cache hit would skip that request's own participant check
+// (ARCHITECTURE.md's M4 slice 2 decision). Retention (100 rows / 90 days) is
+// also enforced per-operator now, not cache-wide — one operator's usage must
+// never evict another's rows.
 
 const RETENTION_MAX_ROWS = 100;
 const RETENTION_MAX_AGE_DAYS = 90;
 const TABLE = "cached_matches";
+
+/** Every Postgres error from this class is fail-open at the caller (write-
+ * through/read-through swallow it) — this just standardizes "throw
+ * UpstreamError with this message" so each call site doesn't hand-roll it. */
+function assertNoError(
+  error: { message: string } | null,
+  message: string,
+): void {
+  if (error) throw new UpstreamError(`${message}: ${error.message}`);
+}
 
 export interface NewCachedMatchRow {
   match_id: string;
@@ -98,80 +118,81 @@ export class MatchCache {
   /** Upsert one row, then enforce retention. Throws on any Postgres error —
    * callers that want write-through to be best-effort (get_match_detail) must
    * catch and swallow, per ARCHITECTURE.md's fail-open cache-write decision. */
-  async upsert(row: NewCachedMatchRow): Promise<void> {
-    const { error } = await this.client
-      .from(TABLE)
-      .upsert({ ...row, cached_at: new Date().toISOString() });
-    if (error) {
-      throw new UpstreamError(`cache upsert failed: ${error.message}`);
-    }
-    await this.evict();
+  async upsert(operatorPuuid: string, row: NewCachedMatchRow): Promise<void> {
+    const { error } = await this.client.from(TABLE).upsert({
+      ...row,
+      operator_puuid: operatorPuuid,
+      cached_at: new Date().toISOString(),
+    });
+    assertNoError(error, "cache upsert failed");
+    await this.evict(operatorPuuid);
   }
 
-  /** Look up one row's stored detail + insight flag by match_id. Returns null
-   * on no row; throws on any Postgres error — callers that want read-through
-   * to be best-effort (get_match_detail) must catch and treat as a miss, per
-   * ARCHITECTURE.md's fail-open cache decision. */
-  async getDetail(matchId: string): Promise<CachedDetail | null> {
+  /** Look up one row's stored detail + insight flag by match_id, scoped to
+   * operatorPuuid (the composite primary key — see the slice-2 note above).
+   * Returns null on no row; throws on any Postgres error — callers that want
+   * read-through to be best-effort (get_match_detail) must catch and treat as
+   * a miss, per ARCHITECTURE.md's fail-open cache decision. */
+  async getDetail(
+    operatorPuuid: string,
+    matchId: string,
+  ): Promise<CachedDetail | null> {
     const { data, error } = await this.client
       .from(TABLE)
       .select("detail, has_insight")
+      .eq("operator_puuid", operatorPuuid)
       .eq("match_id", matchId)
       .maybeSingle();
-    if (error) {
-      throw new UpstreamError(`cache detail lookup failed: ${error.message}`);
-    }
+    assertNoError(error, "cache detail lookup failed");
     if (!data) return null;
     return z
       .object({ detail: z.unknown(), has_insight: z.boolean() })
       .parse(data);
   }
 
-  /** Batch-insert light rows (from stored-matches), skipping any match_id
-   * that already has a row — light data never overwrites, light or full
-   * (ARCHITECTURE.md's slice-3 decision). One eviction pass for the whole
-   * batch, not one per row. Throws on any Postgres error — callers (
-   * get_recent_matches/get_player_stats) must catch and swallow, same
-   * fail-open contract as upsert(). */
-  async insertLightMatches(rows: NewLightCachedMatchRow[]): Promise<void> {
+  /** Batch-insert light rows (from stored-matches) for one operator, skipping
+   * any (operatorPuuid, match_id) that already has a row — light data never
+   * overwrites, light or full (ARCHITECTURE.md's slice-3 decision). One
+   * eviction pass for the whole batch, not one per row. Throws on any
+   * Postgres error — callers (get_recent_matches/get_player_stats) must catch
+   * and swallow, same fail-open contract as upsert(). */
+  async insertLightMatches(
+    operatorPuuid: string,
+    rows: NewLightCachedMatchRow[],
+  ): Promise<void> {
     if (rows.length === 0) return;
     const cachedAt = new Date().toISOString();
     const { error } = await this.client.from(TABLE).upsert(
       rows.map((row) => ({
         ...row,
+        operator_puuid: operatorPuuid,
         has_insight: false,
         detail: null,
         cached_at: cachedAt,
       })),
-      { onConflict: "match_id", ignoreDuplicates: true },
+      { onConflict: "operator_puuid,match_id", ignoreDuplicates: true },
     );
-    if (error) {
-      throw new UpstreamError(`cache light-insert failed: ${error.message}`);
-    }
-    await this.evict();
+    assertNoError(error, "cache light-insert failed");
+    await this.evict(operatorPuuid);
   }
 
-  private async evict(): Promise<void> {
+  private async evict(operatorPuuid: string): Promise<void> {
     const cutoff = new Date(
       Date.now() - RETENTION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
     const { error: ageError } = await this.client
       .from(TABLE)
       .delete()
+      .eq("operator_puuid", operatorPuuid)
       .lt("cached_at", cutoff);
-    if (ageError) {
-      throw new UpstreamError(`cache age eviction failed: ${ageError.message}`);
-    }
+    assertNoError(ageError, "cache age eviction failed");
 
     const { data, error: listError } = await this.client
       .from(TABLE)
       .select("match_id")
+      .eq("operator_puuid", operatorPuuid)
       .order("cached_at", { ascending: false });
-    if (listError) {
-      throw new UpstreamError(
-        `cache eviction list failed: ${listError.message}`,
-      );
-    }
+    assertNoError(listError, "cache eviction list failed");
 
     const rows = z.array(z.object({ match_id: z.string() })).parse(data ?? []);
     const excess = rows.slice(RETENTION_MAX_ROWS).map((r) => r.match_id);
@@ -179,21 +200,22 @@ export class MatchCache {
       const { error: deleteError } = await this.client
         .from(TABLE)
         .delete()
+        .eq("operator_puuid", operatorPuuid)
         .in("match_id", excess);
-      if (deleteError) {
-        throw new UpstreamError(
-          `cache row-count eviction failed: ${deleteError.message}`,
-        );
-      }
+      assertNoError(deleteError, "cache row-count eviction failed");
     }
   }
 
-  async search(filters: SearchMatchHistoryFilters): Promise<CachedMatchRow[]> {
+  async search(
+    operatorPuuid: string,
+    filters: SearchMatchHistoryFilters,
+  ): Promise<CachedMatchRow[]> {
     let query = this.client
       .from(TABLE)
       .select(
         "match_id, map, mode, started_at, season_short, operator_agent, operator_tier_id, operator_tier_name, operator_score, operator_kills, operator_deaths, operator_assists, operator_won",
       )
+      .eq("operator_puuid", operatorPuuid)
       .order("started_at", { ascending: false })
       .limit(filters.limit);
 
@@ -214,9 +236,7 @@ export class MatchCache {
     }
 
     const { data, error } = await query;
-    if (error) {
-      throw new UpstreamError(`cache search failed: ${error.message}`);
-    }
+    assertNoError(error, "cache search failed");
 
     const result = z.array(cachedMatchRowSchema).safeParse(data ?? []);
     if (!result.success) {

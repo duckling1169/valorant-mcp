@@ -1,5 +1,5 @@
 import type { Endpoints } from "./endpoints";
-import type { ServerConfig } from "./config";
+import type { OperatorIdentity } from "./identity";
 import { guardTool, type Envelope } from "./envelope";
 import { InputError } from "./errors";
 import { getMatchInsight, type PlayerInsight } from "./match-insight";
@@ -42,7 +42,7 @@ export interface MatchCompare {
 
 export interface CompareMatchDeps {
   endpoints: Endpoints;
-  config: Pick<ServerConfig, "operatorPuuid" | "operatorRegion">;
+  config: Pick<OperatorIdentity, "operatorPuuid" | "operatorRegion">;
 }
 
 export function findOpponent(
@@ -55,6 +55,19 @@ export function findOpponent(
       p.name.toLowerCase() === name.toLowerCase() &&
       p.tag.toLowerCase() === tag.toLowerCase(),
   );
+}
+
+/** Shared by get_match_detail/compare_match/compare_rank: every arbitrary-
+ * match_id tool must enforce M0's participant-consent gate the same way. */
+export function requireOperatorParticipant(
+  match: Match,
+  operatorPuuid: string,
+): MatchPlayer {
+  const operator = match.players.find((p) => p.puuid === operatorPuuid);
+  if (!operator) {
+    throw new InputError("match_id does not include the configured operator");
+  }
+  return operator;
 }
 
 function toCompareEntry(
@@ -91,11 +104,7 @@ export async function compareMatch(
   return guardTool(async () => {
     const { operatorPuuid, operatorRegion } = deps.config;
     const match = await deps.endpoints.getMatchById(operatorRegion, match_id);
-
-    const operator = match.players.find((p) => p.puuid === operatorPuuid);
-    if (!operator) {
-      throw new InputError("match_id does not include the configured operator");
-    }
+    const operator = requireOperatorParticipant(match, operatorPuuid);
 
     const opponent = findOpponent(match, opponent_name, opponent_tag);
     if (!opponent) {

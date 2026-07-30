@@ -198,7 +198,7 @@ describe("getPlayerStats", () => {
       { sample_size: 20 },
     );
     expect(envelope.ok).toBe(true);
-    expect(insertLightMatches).toHaveBeenCalledWith([
+    expect(insertLightMatches).toHaveBeenCalledWith("abc-123", [
       expect.objectContaining({ match_id: "match-1" }),
       expect.objectContaining({ match_id: "match-2" }),
       expect.objectContaining({ match_id: "match-3" }),

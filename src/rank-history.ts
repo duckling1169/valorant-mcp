@@ -1,5 +1,5 @@
 import type { Endpoints } from "./endpoints";
-import type { ServerConfig } from "./config";
+import type { OperatorIdentity } from "./identity";
 import { guardTool, type Envelope } from "./envelope";
 import { InputError } from "./errors";
 
@@ -36,10 +36,7 @@ export interface RankHistoryEntry {
 
 export interface RankHistoryDeps {
   endpoints: Endpoints;
-  config: Pick<
-    ServerConfig,
-    "operatorPuuid" | "operatorRegion" | "operatorPlatform"
-  >;
+  config: OperatorIdentity;
 }
 
 export async function getRankHistory(

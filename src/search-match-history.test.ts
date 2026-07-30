@@ -3,6 +3,8 @@ import { searchMatchHistory } from "./search-match-history";
 import type { MatchCache } from "./match-cache";
 import { UpstreamError } from "./errors";
 
+const config = { operatorPuuid: "operator-1" };
+
 function fakeCache(rows: unknown[] = []): MatchCache {
   return { search: vi.fn(async () => rows) } as unknown as MatchCache;
 }
@@ -25,7 +27,7 @@ describe("searchMatchHistory", () => {
         operator_won: true,
       },
     ]);
-    const envelope = await searchMatchHistory({ cache }, { limit: 20 });
+    const envelope = await searchMatchHistory({ cache, config }, { limit: 20 });
     expect(envelope.ok).toBe(true);
     expect(envelope.data).toEqual([
       {
@@ -44,9 +46,15 @@ describe("searchMatchHistory", () => {
     ]);
   });
 
+  it("passes the requesting operator's puuid through to MatchCache.search", async () => {
+    const cache = fakeCache([]);
+    await searchMatchHistory({ cache, config }, { limit: 20 });
+    expect(cache.search).toHaveBeenCalledWith("operator-1", { limit: 20 });
+  });
+
   it("returns ok:true with an empty list when nothing matches, not an error", async () => {
     const envelope = await searchMatchHistory(
-      { cache: fakeCache([]) },
+      { cache: fakeCache([]), config },
       {
         limit: 20,
       },
@@ -61,7 +69,7 @@ describe("searchMatchHistory", () => {
         throw new UpstreamError("boom", 500);
       }),
     } as unknown as MatchCache;
-    const envelope = await searchMatchHistory({ cache }, { limit: 20 });
+    const envelope = await searchMatchHistory({ cache, config }, { limit: 20 });
     expect(envelope.ok).toBe(false);
     expect(envelope.error?.kind).toBe("upstream");
   });

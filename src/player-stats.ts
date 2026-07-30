@@ -1,9 +1,12 @@
 import type { Endpoints } from "./endpoints";
-import type { ServerConfig } from "./config";
+import type { OperatorIdentity } from "./identity";
 import { guardTool, type Envelope } from "./envelope";
 import { computeWon, toLightCachedMatchRow } from "./recent-matches";
 import { agentRole, type AgentRole } from "./agent-roles";
 import type { MatchCache } from "./match-cache";
+import { safeDivide } from "./math";
+import { cacheFailOpen } from "./cache-fail-open";
+import { toRankSummary, type Profile } from "./profile";
 
 // get_player_stats({ sample_size? }) — pooled descriptive stats across the
 // operator's recent competitive matches (M2's T1 facets: impact distributions,
@@ -43,16 +46,7 @@ export interface PlayerStats {
   headshot_pct: StatDistribution;
   survival_rate: number;
   agents: AgentBreakdownEntry[];
-  rank: {
-    tier: { id: number; name: string };
-    rr: number;
-    elo: number;
-    leaderboard_placement: number | null;
-    peak: {
-      tier: { id: number; name: string };
-      season: { id: string; short: string };
-    };
-  };
+  rank: Profile["rank"];
   rr_climb: number;
   best_game: BestWorstGame | null;
   worst_game: BestWorstGame | null;
@@ -60,10 +54,7 @@ export interface PlayerStats {
 
 export interface PlayerStatsDeps {
   endpoints: Endpoints;
-  config: Pick<
-    ServerConfig,
-    "operatorPuuid" | "operatorRegion" | "operatorPlatform"
-  >;
+  config: OperatorIdentity;
   cache?: MatchCache;
 }
 
@@ -126,16 +117,14 @@ export async function getPlayerStats(
       ),
     ]);
 
-    if (deps.cache) {
-      try {
-        await deps.cache.insertLightMatches(matches.map(toLightCachedMatchRow));
-      } catch (err) {
-        // Best-effort write-through (ARCHITECTURE.md's fail-open decision).
-        console.error(
-          "match cache light write-through failed",
-          err instanceof Error ? err.message : String(err),
-        );
-      }
+    const cache = deps.cache;
+    if (cache) {
+      await cacheFailOpen("match cache light write-through failed", () =>
+        cache.insertLightMatches(
+          operatorPuuid,
+          matches.map(toLightCachedMatchRow),
+        ),
+      );
     }
 
     const derived: DerivedMatch[] = matches.map((match) => {
@@ -148,12 +137,12 @@ export async function getPlayerStats(
         started_at: match.meta.started_at,
         agent: match.stats.character.name,
         rounds,
-        acs: rounds > 0 ? match.stats.score / rounds : 0,
-        adr: rounds > 0 ? match.stats.damage.made / rounds : 0,
+        acs: safeDivide(match.stats.score, rounds),
+        adr: safeDivide(match.stats.damage.made, rounds),
         kda:
           (match.stats.kills + match.stats.assists) /
           Math.max(match.stats.deaths, 1),
-        headshot_pct: totalShots > 0 ? match.stats.shots.head / totalShots : 0,
+        headshot_pct: safeDivide(match.stats.shots.head, totalShots),
         deaths: match.stats.deaths,
         won: computeWon(match.stats.team, match.teams.red, match.teams.blue),
       };
@@ -176,10 +165,10 @@ export async function getPlayerStats(
           agent,
           role: agentRole(agent === "unknown" ? null : agent),
           games: group.length,
-          win_rate:
-            decided.length > 0
-              ? decided.filter((m) => m.won).length / decided.length
-              : 0,
+          win_rate: safeDivide(
+            decided.filter((m) => m.won).length,
+            decided.length,
+          ),
           avg_kda: mean(group.map((m) => m.kda)),
         };
       },
@@ -200,18 +189,9 @@ export async function getPlayerStats(
       adr: distribution(derived.map((m) => m.adr)),
       kda: distribution(derived.map((m) => m.kda)),
       headshot_pct: distribution(derived.map((m) => m.headshot_pct)),
-      survival_rate: totalRounds > 0 ? 1 - totalDeaths / totalRounds : 0,
+      survival_rate: 1 - safeDivide(totalDeaths, totalRounds, 1),
       agents,
-      rank: {
-        tier: mmr.current.tier,
-        rr: mmr.current.rr,
-        elo: mmr.current.elo,
-        leaderboard_placement: mmr.current.leaderboard_placement,
-        peak: {
-          tier: mmr.peak.tier,
-          season: mmr.peak.season,
-        },
-      },
+      rank: toRankSummary(mmr),
       rr_climb: mmrHistory.history.reduce((sum, h) => sum + h.last_change, 0),
       best_game: bestGame
         ? {

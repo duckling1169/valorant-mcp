@@ -1,9 +1,10 @@
 import type { Endpoints } from "./endpoints";
-import type { ServerConfig } from "./config";
+import type { OperatorIdentity } from "./identity";
 import { guardTool, type Envelope } from "./envelope";
 import { tierName } from "./tiers";
 import type { StoredMatchesResponse } from "./henrik-schemas";
 import type { MatchCache, NewLightCachedMatchRow } from "./match-cache";
+import { cacheFailOpen } from "./cache-fail-open";
 
 // get_recent_matches({ limit? }) — recent competitive matches only, bound to the
 // one configured operator profile. `limit` is validated by the MCP tool's declared
@@ -37,7 +38,7 @@ export interface RecentMatches {
 
 export interface RecentMatchesDeps {
   endpoints: Endpoints;
-  config: Pick<ServerConfig, "operatorPuuid" | "operatorRegion">;
+  config: Pick<OperatorIdentity, "operatorPuuid" | "operatorRegion">;
   cache?: MatchCache;
 }
 
@@ -89,16 +90,14 @@ export async function getRecentMatches(
       limit,
     );
 
-    if (deps.cache) {
-      try {
-        await deps.cache.insertLightMatches(matches.map(toLightCachedMatchRow));
-      } catch (err) {
-        // Best-effort write-through (ARCHITECTURE.md's fail-open decision).
-        console.error(
-          "match cache light write-through failed",
-          err instanceof Error ? err.message : String(err),
-        );
-      }
+    const cache = deps.cache;
+    if (cache) {
+      await cacheFailOpen("match cache light write-through failed", () =>
+        cache.insertLightMatches(
+          operatorPuuid,
+          matches.map(toLightCachedMatchRow),
+        ),
+      );
     }
 
     return {

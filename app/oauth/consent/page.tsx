@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserSupabaseClient } from "@/src/supabase-browser";
+import { requireSession } from "@/src/require-session";
 import type { OAuthAuthorizationDetails } from "@supabase/supabase-js";
 
 type Status = "loading" | "ready" | "error";
@@ -25,14 +26,11 @@ export default function ConsentPage() {
       setAuthorizationId(id);
 
       const supabase = createBrowserSupabaseClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        const next = `/oauth/consent?authorization_id=${encodeURIComponent(id)}`;
-        window.location.href = `/login?next=${encodeURIComponent(next)}`;
-        return;
-      }
+      const session = await requireSession(
+        supabase,
+        `/oauth/consent?authorization_id=${encodeURIComponent(id)}`,
+      );
+      if (!session) return;
 
       const { data, error } =
         await supabase.auth.oauth.getAuthorizationDetails(id);

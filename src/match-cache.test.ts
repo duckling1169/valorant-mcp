@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { MatchCache, type NewCachedMatchRow } from "./match-cache";
 import { UpstreamError, SchemaError } from "./errors";
 
+const OPERATOR_PUUID = "operator-1";
+
 interface FakeResult {
   data?: unknown;
   error?: { message: string } | null;
@@ -85,10 +87,32 @@ describe("MatchCache.upsert", () => {
       { error: null }, // age-based delete
       { data: [{ match_id: "match-1" }], error: null }, // list for count eviction
     ]);
-    await expect(new MatchCache(client).upsert(row)).resolves.toBeUndefined();
+    await expect(
+      new MatchCache(client).upsert(OPERATOR_PUUID, row),
+    ).resolves.toBeUndefined();
   });
 
-  it("evicts rows beyond the 100-row retention bound", async () => {
+  it("scopes both the upsert row and eviction to operatorPuuid", async () => {
+    const { client, builders } = fakeClient([
+      { error: null }, // upsert
+      { error: null }, // age-based delete
+      { data: [{ match_id: "match-1" }], error: null }, // list for count eviction
+    ]);
+    await new MatchCache(client).upsert(OPERATOR_PUUID, row);
+    const upsertBuilder = builders[0];
+    if (!upsertBuilder) throw new Error("expected an upsert builder call");
+    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ operator_puuid: OPERATOR_PUUID }),
+    );
+    const ageDeleteBuilder = builders[1];
+    if (!ageDeleteBuilder) throw new Error("expected an age-delete builder");
+    expect(ageDeleteBuilder.eq).toHaveBeenCalledWith(
+      "operator_puuid",
+      OPERATOR_PUUID,
+    );
+  });
+
+  it("evicts rows beyond the 100-row retention bound, scoped to operatorPuuid", async () => {
     const rows = Array.from({ length: 105 }, (_, n) => ({
       match_id: `match-${n}`,
     }));
@@ -98,9 +122,13 @@ describe("MatchCache.upsert", () => {
       { data: rows, error: null }, // list
       { error: null }, // count-based delete
     ]);
-    await new MatchCache(client).upsert(row);
+    await new MatchCache(client).upsert(OPERATOR_PUUID, row);
     const countDeleteBuilder = builders[3];
     if (!countDeleteBuilder) throw new Error("expected a 4th builder call");
+    expect(countDeleteBuilder.eq).toHaveBeenCalledWith(
+      "operator_puuid",
+      OPERATOR_PUUID,
+    );
     expect(countDeleteBuilder.in).toHaveBeenCalledWith(
       "match_id",
       rows.slice(100).map((r) => r.match_id),
@@ -109,14 +137,14 @@ describe("MatchCache.upsert", () => {
 
   it("throws UpstreamError when the insert fails", async () => {
     const { client } = fakeClient([{ error: { message: "boom" } }]);
-    await expect(new MatchCache(client).upsert(row)).rejects.toThrow(
-      UpstreamError,
-    );
+    await expect(
+      new MatchCache(client).upsert(OPERATOR_PUUID, row),
+    ).rejects.toThrow(UpstreamError);
   });
 });
 
 describe("MatchCache.search", () => {
-  it("returns validated rows", async () => {
+  it("returns validated rows, scoped to operatorPuuid", async () => {
     const cachedRow = {
       match_id: "match-1",
       map: "Ascent",
@@ -132,25 +160,32 @@ describe("MatchCache.search", () => {
       operator_assists: 5,
       operator_won: true,
     };
-    const { client } = fakeClient([{ data: [cachedRow], error: null }]);
-    const result = await new MatchCache(client).search({ limit: 20 });
+    const { client, builders } = fakeClient([
+      { data: [cachedRow], error: null },
+    ]);
+    const result = await new MatchCache(client).search(OPERATOR_PUUID, {
+      limit: 20,
+    });
     expect(result).toEqual([cachedRow]);
+    const builder = builders[0];
+    if (!builder) throw new Error("expected a builder call");
+    expect(builder.eq).toHaveBeenCalledWith("operator_puuid", OPERATOR_PUUID);
   });
 
   it("throws UpstreamError when the query fails", async () => {
     const { client } = fakeClient([{ error: { message: "boom" } }]);
-    await expect(new MatchCache(client).search({ limit: 20 })).rejects.toThrow(
-      UpstreamError,
-    );
+    await expect(
+      new MatchCache(client).search(OPERATOR_PUUID, { limit: 20 }),
+    ).rejects.toThrow(UpstreamError);
   });
 
   it("throws SchemaError when a row doesn't match the expected shape", async () => {
     const { client } = fakeClient([
       { data: [{ match_id: "match-1" }], error: null },
     ]);
-    await expect(new MatchCache(client).search({ limit: 20 })).rejects.toThrow(
-      SchemaError,
-    );
+    await expect(
+      new MatchCache(client).search(OPERATOR_PUUID, { limit: 20 }),
+    ).rejects.toThrow(SchemaError);
   });
 });
 
@@ -174,17 +209,17 @@ const lightRow = {
 describe("MatchCache.insertLightMatches", () => {
   it("does nothing for an empty batch (no from() call)", async () => {
     const { client } = fakeClient([]);
-    await new MatchCache(client).insertLightMatches([]);
+    await new MatchCache(client).insertLightMatches(OPERATOR_PUUID, []);
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("upserts with ignoreDuplicates and evicts once for the whole batch", async () => {
+  it("upserts with operator_puuid + ignoreDuplicates, evicts once for the batch", async () => {
     const { client, builders } = fakeClient([
       { error: null }, // batch upsert
       { error: null }, // age-based delete
       { data: [{ match_id: "match-2" }], error: null }, // list for count eviction
     ]);
-    await new MatchCache(client).insertLightMatches([lightRow]);
+    await new MatchCache(client).insertLightMatches(OPERATOR_PUUID, [lightRow]);
     expect(client.from).toHaveBeenCalledTimes(3);
     const upsertBuilder = builders[0];
     if (!upsertBuilder) throw new Error("expected an upsert builder call");
@@ -192,47 +227,57 @@ describe("MatchCache.insertLightMatches", () => {
       [
         expect.objectContaining({
           match_id: "match-2",
+          operator_puuid: OPERATOR_PUUID,
           has_insight: false,
           detail: null,
         }),
       ],
-      { onConflict: "match_id", ignoreDuplicates: true },
+      { onConflict: "operator_puuid,match_id", ignoreDuplicates: true },
     );
   });
 
   it("throws UpstreamError when the batch upsert fails", async () => {
     const { client } = fakeClient([{ error: { message: "boom" } }]);
     await expect(
-      new MatchCache(client).insertLightMatches([lightRow]),
+      new MatchCache(client).insertLightMatches(OPERATOR_PUUID, [lightRow]),
     ).rejects.toThrow(UpstreamError);
   });
 });
 
 describe("MatchCache.getDetail", () => {
   it("returns detail + has_insight when a row exists", async () => {
-    const { client } = fakeClient([
+    const { client, builders } = fakeClient([
       {
         data: { detail: { match_id: "match-1" }, has_insight: true },
         error: null,
       },
     ]);
-    const result = await new MatchCache(client).getDetail("match-1");
+    const result = await new MatchCache(client).getDetail(
+      OPERATOR_PUUID,
+      "match-1",
+    );
     expect(result).toEqual({
       detail: { match_id: "match-1" },
       has_insight: true,
     });
+    const builder = builders[0];
+    if (!builder) throw new Error("expected a builder call");
+    expect(builder.eq).toHaveBeenCalledWith("operator_puuid", OPERATOR_PUUID);
   });
 
   it("returns null when no row exists", async () => {
     const { client } = fakeClient([{ data: null, error: null }]);
-    const result = await new MatchCache(client).getDetail("match-1");
+    const result = await new MatchCache(client).getDetail(
+      OPERATOR_PUUID,
+      "match-1",
+    );
     expect(result).toBeNull();
   });
 
   it("throws UpstreamError when the lookup fails", async () => {
     const { client } = fakeClient([{ error: { message: "boom" } }]);
-    await expect(new MatchCache(client).getDetail("match-1")).rejects.toThrow(
-      UpstreamError,
-    );
+    await expect(
+      new MatchCache(client).getDetail(OPERATOR_PUUID, "match-1"),
+    ).rejects.toThrow(UpstreamError);
   });
 });

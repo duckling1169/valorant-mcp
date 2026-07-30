@@ -163,6 +163,7 @@ describe("getMatchDetail", () => {
     );
     expect(envelope.ok).toBe(true);
     expect(upsert).toHaveBeenCalledWith(
+      "operator-puuid",
       expect.objectContaining({
         match_id: "match-abc",
         map: "Ascent",

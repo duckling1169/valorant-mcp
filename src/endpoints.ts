@@ -34,6 +34,20 @@ export class Endpoints {
     return parseHenrikPayload(accountByPuuidSchema, res.data).data;
   }
 
+  /** Riot ID (name#tag) -> account, the opposite direction of
+   * getAccountByPuuid — used only for admin onboarding (src/create-invite.ts),
+   * never exposed as an MCP tool (ARCHITECTURE.md's "never a fresh Riot-ID
+   * lookup" rule is about *player-facing* tools, not admin provisioning). */
+  async getAccountByName(
+    name: string,
+    tag: string,
+  ): Promise<AccountByPuuidResponse["data"]> {
+    const res = await this.client.get(
+      `/valorant/v2/account/${seg(name)}/${seg(tag)}`,
+    );
+    return parseHenrikPayload(accountByPuuidSchema, res.data).data;
+  }
+
   async getMmr(
     region: Region,
     platform: Platform,

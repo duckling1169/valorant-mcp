@@ -16,6 +16,8 @@ const seasonRefSchema = z.object({
   short: z.string(),
 });
 
+const nullableNameRefSchema = z.object({ name: z.string().nullable() });
+
 export const accountByPuuidSchema = z.object({
   status: z.number(),
   data: z.object({
@@ -58,14 +60,14 @@ export type MmrByPuuidResponse = z.infer<typeof mmrByPuuidSchema>;
 const storedMatchItemSchema = z.object({
   meta: z.object({
     id: z.string(),
-    map: z.object({ name: z.string().nullable() }),
+    map: nullableNameRefSchema,
     mode: z.string(),
     started_at: z.string(),
     season: seasonRefSchema,
   }),
   stats: z.object({
     team: z.string(),
-    character: z.object({ name: z.string().nullable() }),
+    character: nullableNameRefSchema,
     tier: z.number(),
     score: z.number(),
     kills: z.number(),
@@ -100,7 +102,7 @@ export const mmrHistorySchema = z.object({
       z.object({
         tier: tierRefSchema,
         match_id: z.string(),
-        map: z.object({ name: z.string().nullable() }),
+        map: nullableNameRefSchema,
         season: seasonRefSchema,
         rr: z.number(),
         last_change: z.number(),
@@ -125,7 +127,7 @@ const matchPlayerSchema = z.object({
   // name (e.g. "playstation") here, so this stays a plain string; callers that
   // need the narrower enum (compare-rank.ts) normalize it themselves.
   platform: z.string(),
-  agent: z.object({ name: z.string().nullable() }),
+  agent: nullableNameRefSchema,
   tier: tierRefSchema,
   stats: z.object({
     score: z.number(),

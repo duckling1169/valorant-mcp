@@ -151,7 +151,7 @@ describe("getRecentMatches", () => {
       { limit: 10 },
     );
     expect(envelope.ok).toBe(true);
-    expect(insertLightMatches).toHaveBeenCalledWith([
+    expect(insertLightMatches).toHaveBeenCalledWith("abc-123", [
       expect.objectContaining({ match_id: "match-1", operator_won: true }),
       expect.objectContaining({ match_id: "match-2", operator_won: false }),
       expect.objectContaining({ match_id: "match-3", operator_won: null }),

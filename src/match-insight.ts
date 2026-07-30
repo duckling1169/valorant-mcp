@@ -1,4 +1,5 @@
 import type { MatchByIdResponse } from "./henrik-schemas";
+import { safeDivide } from "./math";
 
 // M2's T2 facets — folded into get_match_detail behind include_insight (opt-in:
 // the compute cost is negligible next to the network fetch already paid, but the
@@ -157,9 +158,8 @@ function computeTrades(
   }
 
   return {
-    trade_rate: ownKills.length > 0 ? tradeKills / ownKills.length : 0,
-    traded_out_rate:
-      ownDeaths.length > 0 ? tradedOutDeaths / ownDeaths.length : 0,
+    trade_rate: safeDivide(tradeKills, ownKills.length),
+    traded_out_rate: safeDivide(tradedOutDeaths, ownDeaths.length),
   };
 }
 
@@ -224,7 +224,7 @@ function computeWeaponAccuracy(match: Match, puuid: string): WeaponAccuracy[] {
     const totalShots = t.head + t.body + t.leg;
     return {
       weapon,
-      headshot_pct: totalShots > 0 ? t.head / totalShots : 0,
+      headshot_pct: safeDivide(t.head, totalShots),
       approximate: true as const,
     };
   });
@@ -289,8 +289,8 @@ function computeSide(
   }
 
   const finalize = (b: (typeof accum)["attack"]): SideStats => ({
-    win_rate: b.rounds > 0 ? b.wins / b.rounds : 0,
-    acs: b.rounds > 0 ? b.score / b.rounds : 0,
+    win_rate: safeDivide(b.wins, b.rounds),
+    acs: safeDivide(b.score, b.rounds),
     kills: b.kills,
     deaths: b.deaths,
     first_bloods: b.first_bloods,
@@ -333,7 +333,7 @@ function computeEconomy(
     wins: number;
   }): EconomyBucketStats => ({
     rounds: b.rounds,
-    win_rate: b.rounds > 0 ? b.wins / b.rounds : 0,
+    win_rate: safeDivide(b.wins, b.rounds),
   });
 
   return {
@@ -445,8 +445,8 @@ function computeLobbyPercentile(
   const totalRounds = match.rounds.length;
   const perPlayer = match.players.map((p) => ({
     puuid: p.puuid,
-    acs: totalRounds > 0 ? p.stats.score / totalRounds : 0,
-    adr: totalRounds > 0 ? p.stats.damage.dealt / totalRounds : 0,
+    acs: safeDivide(p.stats.score, totalRounds),
+    adr: safeDivide(p.stats.damage.dealt, totalRounds),
   }));
   const operator = perPlayer.find((p) => p.puuid === operatorPuuid);
   if (!operator) return { acs: 0, adr: 0 };

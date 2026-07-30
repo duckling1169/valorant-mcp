@@ -1,6 +1,7 @@
 import { guardTool, type Envelope } from "./envelope";
 import type { MatchCache } from "./match-cache";
 import type { RecentMatch } from "./recent-matches";
+import type { OperatorIdentity } from "./identity";
 
 // search_match_history({ map?, agent?, act?, rank?, date_from?, date_to?, limit? })
 // — cache-only query over matches the operator has already individually
@@ -8,9 +9,13 @@ import type { RecentMatch } from "./recent-matches";
 // No live HenrikDev fallback: an empty result means nothing cached matches the
 // filters, not an error — a cache populated only opportunistically by
 // get_match_detail calls is expected to have gaps.
+//
+// M4 slice 2: scoped to the requesting operator's own puuid (cached_matches'
+// composite primary key) — never searches another consented profile's cache.
 
 export interface SearchMatchHistoryDeps {
   cache: MatchCache;
+  config: Pick<OperatorIdentity, "operatorPuuid">;
 }
 
 export interface SearchMatchHistoryFilters {
@@ -28,7 +33,7 @@ export async function searchMatchHistory(
   filters: SearchMatchHistoryFilters,
 ): Promise<Envelope<RecentMatch[]>> {
   return guardTool(async () => {
-    const rows = await deps.cache.search(filters);
+    const rows = await deps.cache.search(deps.config.operatorPuuid, filters);
     return rows.map((row) => ({
       match_id: row.match_id,
       map: row.map,

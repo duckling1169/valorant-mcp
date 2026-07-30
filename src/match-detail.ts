@@ -1,10 +1,11 @@
 import { z } from "zod";
 import type { Endpoints } from "./endpoints";
-import type { ServerConfig } from "./config";
+import type { OperatorIdentity } from "./identity";
 import { guardTool, type Envelope } from "./envelope";
-import { InputError } from "./errors";
-import { getMatchInsight, type PlayerInsight } from "./match-insight";
+import { getMatchInsight } from "./match-insight";
 import type { MatchCache } from "./match-cache";
+import { requireOperatorParticipant } from "./compare-match";
+import { cacheFailOpen } from "./cache-fail-open";
 
 // get_match_detail({ match_id }) — compact selected-match detail. Unlike
 // get_profile/get_recent_matches (inherently scoped to the operator), this tool
@@ -27,48 +28,11 @@ import type { MatchCache } from "./match-cache";
 // treated as a plain miss, never a tool error — the live path is always a
 // working fallback, unlike HenrikDev's own schema-drift failures.
 
-export interface MatchPlayerDetail {
-  name: string;
-  tag: string;
-  team_id: string;
-  agent: string | null;
-  tier: { id: number; name: string };
-  kills: number;
-  deaths: number;
-  assists: number;
-  score: number;
-  headshots: number;
-  bodyshots: number;
-  legshots: number;
-  damage_dealt: number;
-  damage_received: number;
-  insight?: PlayerInsight;
-}
-
-export interface MatchTeamDetail {
-  team_id: string;
-  rounds_won: number;
-  rounds_lost: number;
-  won: boolean;
-}
-
-export interface MatchDetail {
-  match_id: string;
-  map: string;
-  mode: string | null;
-  started_at: string;
-  game_length_in_ms: number;
-  is_completed: boolean;
-  players: MatchPlayerDetail[];
-  teams: MatchTeamDetail[];
-  trade_window_ms?: number;
-  economy_thresholds?: { eco: number; semi: number };
-  party?: { operator_party_size: number; other_party_sizes: number[] };
-  operator_lobby_percentile?: { acs: number; adr: number };
-}
-
-// Mirrors MatchDetail above — used only to validate a cached row's `detail`
-// jsonb on read (see the slice-2 note above), not to construct responses.
+// The schema below is the single source of truth for MatchDetail's shape —
+// both the tool's own response shape and what validates a cached row's
+// `detail` jsonb on read (see the slice-2 note above). Types are derived via
+// z.infer rather than hand-kept-in-sync interfaces, same pattern as
+// henrik-schemas.ts's own response types.
 const playerInsightSchema = z.object({
   kast: z.number(),
   trade_rate: z.number(),
@@ -173,9 +137,13 @@ const matchDetailSchema = z.object({
     .optional(),
 });
 
+export type MatchDetail = z.infer<typeof matchDetailSchema>;
+export type MatchPlayerDetail = MatchDetail["players"][number];
+export type MatchTeamDetail = MatchDetail["teams"][number];
+
 export interface MatchDetailDeps {
   endpoints: Endpoints;
-  config: Pick<ServerConfig, "operatorPuuid" | "operatorRegion">;
+  config: Pick<OperatorIdentity, "operatorPuuid" | "operatorRegion">;
   cache?: MatchCache;
 }
 
@@ -189,32 +157,23 @@ export async function getMatchDetail(
   return guardTool(async () => {
     const { operatorPuuid, operatorRegion } = deps.config;
 
-    if (deps.cache) {
-      try {
-        const cached = await deps.cache.getDetail(match_id);
-        if (cached && (!include_insight || cached.has_insight)) {
-          const parsed = matchDetailSchema.safeParse(cached.detail);
-          if (parsed.success) return parsed.data;
-        }
-      } catch (err) {
-        // Fail-open (ARCHITECTURE.md's cache decisions) — a lookup failure
-        // or a shape mismatch is just a miss; the live path below always
-        // works. Operational metadata only: no player data, no match content.
-        console.error(
-          "match cache read-through failed",
-          err instanceof Error ? err.message : String(err),
-        );
+    const cache = deps.cache;
+    if (cache) {
+      // A thrown lookup error or a shape mismatch (e.g. after a future
+      // response-shape change making an old cached row stale) is just a
+      // miss; the live path below always works.
+      const cached = await cacheFailOpen(
+        "match cache read-through failed",
+        () => cache.getDetail(operatorPuuid, match_id),
+      );
+      if (cached && (!include_insight || cached.has_insight)) {
+        const parsed = matchDetailSchema.safeParse(cached.detail);
+        if (parsed.success) return parsed.data;
       }
     }
 
     const match = await deps.endpoints.getMatchById(operatorRegion, match_id);
-
-    const operatorInMatch = match.players.some(
-      (player) => player.puuid === operatorPuuid,
-    );
-    if (!operatorInMatch) {
-      throw new InputError("match_id does not include the configured operator");
-    }
+    requireOperatorParticipant(match, operatorPuuid);
 
     const insight = include_insight
       ? getMatchInsight(match, operatorPuuid)
@@ -260,15 +219,15 @@ export async function getMatchDetail(
       })),
     };
 
-    if (deps.cache) {
+    if (cache) {
       const operatorPlayer = match.players.find(
         (player) => player.puuid === operatorPuuid,
       );
       const operatorTeam = match.teams.find(
         (team) => team.team_id === operatorPlayer?.team_id,
       );
-      try {
-        await deps.cache.upsert({
+      await cacheFailOpen("match cache write-through failed", () =>
+        cache.upsert(operatorPuuid, {
           match_id: match.metadata.match_id,
           map: match.metadata.map.name,
           mode: match.metadata.queue.name,
@@ -285,16 +244,8 @@ export async function getMatchDetail(
           operator_won: operatorTeam?.won ?? null,
           has_insight: include_insight === true,
           detail,
-        });
-      } catch (err) {
-        // Best-effort write-through (ARCHITECTURE.md's fail-open decision) —
-        // never let a cache outage fail an otherwise-successful tool call.
-        // Operational metadata only: no player data, no match content.
-        console.error(
-          "match cache write-through failed",
-          err instanceof Error ? err.message : String(err),
-        );
-      }
+        }),
+      );
     }
 
     return detail;

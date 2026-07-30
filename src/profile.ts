@@ -1,5 +1,6 @@
 import type { Endpoints } from "./endpoints";
-import type { ServerConfig } from "./config";
+import type { OperatorIdentity } from "./identity";
+import type { MmrByPuuidResponse } from "./henrik-schemas";
 import { guardTool, type Envelope } from "./envelope";
 
 // get_profile() — no arguments; bound to the one configured operator profile
@@ -29,10 +30,24 @@ export interface Profile {
 
 export interface ProfileDeps {
   endpoints: Endpoints;
-  config: Pick<
-    ServerConfig,
-    "operatorPuuid" | "operatorRegion" | "operatorPlatform"
-  >;
+  config: OperatorIdentity;
+}
+
+/** Shared by get_profile and get_player_stats — both compose the same
+ * current/peak rank summary from an MmrByPuuidResponse. */
+export function toRankSummary(
+  mmr: MmrByPuuidResponse["data"],
+): Profile["rank"] {
+  return {
+    tier: mmr.current.tier,
+    rr: mmr.current.rr,
+    elo: mmr.current.elo,
+    leaderboard_placement: mmr.current.leaderboard_placement,
+    peak: {
+      tier: mmr.peak.tier,
+      season: mmr.peak.season,
+    },
+  };
 }
 
 export async function getProfile(
@@ -54,16 +69,7 @@ export async function getProfile(
       title: account.title,
       region: account.region,
       platforms: account.platforms,
-      rank: {
-        tier: mmr.current.tier,
-        rr: mmr.current.rr,
-        elo: mmr.current.elo,
-        leaderboard_placement: mmr.current.leaderboard_placement,
-        peak: {
-          tier: mmr.peak.tier,
-          season: mmr.peak.season,
-        },
-      },
+      rank: toRankSummary(mmr),
     };
   });
 }
