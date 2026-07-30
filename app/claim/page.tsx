@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createBrowserSupabaseClient } from "@/src/supabase-browser";
 import { requireSession } from "@/src/require-session";
@@ -238,9 +239,9 @@ export default function ClaimPage() {
           <div style={{ fontFamily: monoFont, fontSize: 12, color: colors.textDim }}>
             Missing invite code.
           </div>
-          <a href="/login" style={{ ...textLinkStyle, marginTop: 6 }}>
-            BACK TO LOGIN
-          </a>
+          <Link href="/" style={{ ...textLinkStyle, marginTop: 6 }}>
+            BACK TO HOME
+          </Link>
         </div>
       )}
 
@@ -278,9 +279,9 @@ export default function ClaimPage() {
           >
             {message}
           </div>
-          <a href="/login" style={{ ...textLinkStyle, marginTop: 6 }}>
-            BACK TO LOGIN
-          </a>
+          <Link href="/" style={{ ...textLinkStyle, marginTop: 6 }}>
+            BACK TO HOME
+          </Link>
         </div>
       )}
     </OpsPanel>
