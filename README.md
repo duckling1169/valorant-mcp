@@ -2,6 +2,11 @@
 
 An always-available, private MCP server that gives its owner’s LLM client factual VALORANT account and match data through HenrikDev’s API.
 
+- OAuth 2.1-authenticated, multi-user MCP server (Streamable HTTP)
+- Invite-based consent model — no player is ever looked up without explicit consent
+- Per-user-scoped Postgres cache, fail-open by design
+- Strict TypeScript, zod-validated boundaries, 100+ tests
+
 ## Quick start
 
 The project targets Node.js 24.x and pnpm 10.x. M1–M4 are complete and deployed (see [ARCHITECTURE.md](ARCHITECTURE.md)); [BACKLOG.md](BACKLOG.md) tracks any active near-term work.
