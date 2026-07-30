@@ -1,4 +1,4 @@
-import { colors, headFont, monoFont, primaryButtonStyle } from "@/app/_components/OpsPanel";
+import { colors, headFont, monoFont, primaryButtonStyle } from "@/app/_components/theme";
 
 const GITHUB_URL = "https://github.com/duckling1169/valorant-mcp";
 
