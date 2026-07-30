@@ -15,6 +15,10 @@ const inviteRowSchema = z.object({
   puuid: z.string().min(1),
   claimed_at: z.string().nullable(),
 });
+const profileRowSchema = z.object({
+  name: z.string().min(1),
+  tag: z.string().min(1),
+});
 
 export async function POST(request: Request) {
   const parsedBody = bodySchema.safeParse(
@@ -72,5 +76,15 @@ export async function POST(request: Request) {
     })
     .eq("code", code);
 
-  return NextResponse.json({ ok: true });
+  const { data: profileRow } = await service
+    .from("consented_profiles")
+    .select("name, tag")
+    .eq("puuid", invite.data.puuid)
+    .maybeSingle();
+  const profile = profileRowSchema.safeParse(profileRow);
+
+  return NextResponse.json({
+    ok: true,
+    ...(profile.success && { name: profile.data.name, tag: profile.data.tag }),
+  });
 }
