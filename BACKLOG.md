@@ -1,5 +1,5 @@
 # Backlog
 
-Keep only ordered, near-term, actionable work. Each item should say what “done” means. Remove completed items; Git history records completed implementation.
+Keep only ordered, near-term, actionable work. Each item should say what "done" means. Remove completed items; Git history records completed implementation.
 
-1. **M2: tool-list expansion** — build as vertical slices (one facet/tool at a time: research, build, verify, ship — same pattern as M1), not a single batch. Legacy's facets split into T1 (needs only already-fetched `stored-matches`/`mmr`: impact-stat distributions, headshot %, per-agent breakdown, survival rate, rank/RR/climb) and T2 (needs `rounds[]`/`kills[]`, not yet validated: KAST, trade rate, first bloods/deaths, multi-kills, per-weapon kills, side splits, economy buckets, plants/defuses, clutch stats, party size, lobby-relative percentile, player comparison). Order: (1) foundational slice — zod validation for `rounds[]`/`kills[]`, no new tool yet; (2) T1 slices, independent of the foundation, can interleave anytime; (3) T2 slices, each consuming the validated foundation. See ARCHITECTURE.md's 2026-07-28 M2-scope decisions for the labeling/grouping/consent rules each slice must follow. Done when the review is complete and every surviving facet is a shipped, tested tool.
+No active backlog items. M1–M4 (see [ROADMAP.md](ROADMAP.md)) are all built and deployed. Add new items here when the next piece of work is decided.
