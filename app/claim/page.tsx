@@ -55,7 +55,10 @@ export default function ClaimPage() {
   }, []);
 
   return (
-    <OpsPanel eyebrow="/claim?code=...: operator setting up their MCP client">
+    <OpsPanel
+      eyebrow="/claim?code=...: operator setting up their MCP client"
+      badge="OPERATOR SETUP"
+    >
       {status === "working" && (
         <div
           style={{
@@ -71,7 +74,7 @@ export default function ClaimPage() {
             style={{
               fontFamily: headFont,
               fontWeight: 700,
-              fontSize: 22,
+              fontSize: "clamp(20px, 3vw, 32px)",
               color: colors.heading,
             }}
           >
@@ -105,7 +108,7 @@ export default function ClaimPage() {
             style={{
               fontFamily: headFont,
               fontWeight: 700,
-              fontSize: "clamp(22px, 7vw, 26px)",
+              fontSize: "clamp(24px, 3.4vw, 38px)",
               color: colors.heading,
               lineHeight: 1.15,
             }}
@@ -152,31 +155,61 @@ export default function ClaimPage() {
 
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              border: `1px solid ${colors.inputBorder}`,
-              padding: "10px 14px",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
+              gap: 1,
+              background: colors.border,
+              border: `1px solid ${colors.border}`,
+              width: "100%",
             }}
           >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                background: colors.green,
-                borderRadius: "50%",
-              }}
-            />
-            <span
-              style={{
-                fontFamily: monoFont,
-                fontSize: 11,
-                color: "#c4c4ca",
-                letterSpacing: "0.06em",
-              }}
-            >
-              8 MCP TOOLS ONLINE: profile, matches, stats, rank, compare
-            </span>
+            {[
+              {
+                label: "PROFILE + RANK",
+                body: "current rank, accuracy, agent pool",
+              },
+              {
+                label: "MATCH HISTORY",
+                body: "recent games, per-match detail",
+              },
+              {
+                label: "COMPARE",
+                body: "head-to-head against a teammate",
+              },
+            ].map((tile) => (
+              <div key={tile.label} style={{ background: "#17171c", padding: "12px 14px" }}>
+                <div
+                  style={{
+                    fontFamily: monoFont,
+                    fontSize: 10,
+                    color: colors.red,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {tile.label}
+                </div>
+                <div
+                  style={{
+                    fontFamily: monoFont,
+                    fontSize: 10.5,
+                    color: colors.textDim,
+                    marginTop: 4,
+                  }}
+                >
+                  {tile.body}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div
+            style={{
+              fontFamily: monoFont,
+              fontSize: 10,
+              color: "#4d4d55",
+              letterSpacing: "0.06em",
+            }}
+          >
+            8 TOOLS TOTAL, ARMED AND READY
           </div>
         </div>
       )}
@@ -195,7 +228,7 @@ export default function ClaimPage() {
             style={{
               fontFamily: headFont,
               fontWeight: 700,
-              fontSize: "clamp(48px, 16vw, 64px)",
+              fontSize: "clamp(56px, 8vw, 96px)",
               color: "#26262e",
               lineHeight: 1,
             }}
@@ -226,7 +259,7 @@ export default function ClaimPage() {
             style={{
               fontFamily: headFont,
               fontWeight: 700,
-              fontSize: "clamp(22px, 7vw, 26px)",
+              fontSize: "clamp(24px, 3.4vw, 38px)",
               color: colors.heading,
               lineHeight: 1.15,
             }}

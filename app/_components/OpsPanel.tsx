@@ -23,9 +23,11 @@ export {
 
 export function OpsPanel({
   eyebrow,
+  badge,
   children,
 }: {
   eyebrow: string;
+  badge: string;
   children: ReactNode;
 }) {
   return (
@@ -50,8 +52,8 @@ export function OpsPanel({
 
       <div
         style={{
-          width: 420,
-          maxWidth: "100%",
+          width: "100%",
+          maxWidth: 900,
           fontFamily: monoFont,
           fontSize: 10,
           color: colors.textFaint,
@@ -63,14 +65,15 @@ export function OpsPanel({
 
       <div
         style={{
-          width: 420,
-          maxWidth: "100%",
-          minHeight: 560,
+          width: "100%",
+          maxWidth: 900,
+          minHeight: 640,
           background: colors.panel,
           position: "relative",
           overflow: "hidden",
           border: `1px solid ${colors.border}`,
           clipPath: "polygon(0 0,100% 0,100% 100%,24px 100%,0 calc(100% - 24px))",
+          boxSizing: "border-box",
         }}
       >
         <div
@@ -100,20 +103,44 @@ export function OpsPanel({
             display: "flex",
             flexDirection: "column",
             height: "100%",
-            padding: "36px clamp(20px, 8vw, 34px)",
+            minHeight: 640,
+            padding: "clamp(28px, 7vw, 64px) clamp(20px, 6vw, 60px)",
             boxSizing: "border-box",
           }}
         >
           <div
             style={{
-              fontFamily: headFont,
-              fontWeight: 700,
-              fontSize: 15,
-              letterSpacing: "0.16em",
-              color: colors.text,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 10,
             }}
           >
-            VALORANT<span style={{ color: colors.red }}>·MCP</span>
+            <div
+              style={{
+                fontFamily: headFont,
+                fontWeight: 700,
+                fontSize: 15,
+                letterSpacing: "0.16em",
+                color: colors.text,
+              }}
+            >
+              VALORANT<span style={{ color: colors.red }}>·MCP</span>
+            </div>
+            <div
+              style={{
+                fontFamily: monoFont,
+                fontSize: 10,
+                color: "#6b6b74",
+                letterSpacing: "0.1em",
+                border: "1px solid #2c2c34",
+                padding: "5px 10px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {badge}
+            </div>
           </div>
           <div
             style={{

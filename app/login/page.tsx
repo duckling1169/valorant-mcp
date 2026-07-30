@@ -35,7 +35,7 @@ export default function LoginPage() {
   }
 
   return (
-    <OpsPanel eyebrow="/login: operator setting up their MCP client">
+    <OpsPanel eyebrow="/login: operator setting up their MCP client" badge="OPERATOR SETUP">
       {status === "sent" ? (
         <div
           style={{
@@ -51,7 +51,7 @@ export default function LoginPage() {
             style={{
               fontFamily: headFont,
               fontWeight: 700,
-              fontSize: "clamp(22px, 7vw, 26px)",
+              fontSize: "clamp(24px, 3.4vw, 38px)",
               color: colors.heading,
               lineHeight: 1.15,
             }}
@@ -85,7 +85,7 @@ export default function LoginPage() {
             style={{
               fontFamily: headFont,
               fontWeight: 700,
-              fontSize: "clamp(24px, 8vw, 30px)",
+              fontSize: "clamp(28px, 4vw, 44px)",
               color: colors.heading,
               lineHeight: 1.1,
               letterSpacing: "0.02em",
