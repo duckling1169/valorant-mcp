@@ -40,11 +40,6 @@
       "source_sha256": "d45c641c2dab405e38791eacdbf96c87f1cebe96888e81647e2178f9c0abc133",
       "template": "templates/software-project/ROADMAP.md"
     },
-    "TEMPLATE_GUIDE.md": {
-      "module": "software-project",
-      "source_sha256": "372d65cbb0ee5ae1d1e019d41bd65d5415d84b733ab757ef8e0de6d04907bcf3",
-      "template": "templates/software-project/TEMPLATE_GUIDE.md"
-    },
     "scripts/check-agent-docs.sh": {
       "module": "software-project",
       "source_sha256": "96bfb6b8d7a7254548a92056e9d832693f0791f6f55786d1900fd9e96337a2ec",
