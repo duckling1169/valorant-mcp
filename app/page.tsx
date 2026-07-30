@@ -36,10 +36,6 @@ export default function Home() {
         boxSizing: "border-box",
       }}
     >
-      <style>{`
-        @keyframes vmcp-landing-scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
-      `}</style>
-
       <div
         style={{
           width: "100%",
@@ -69,30 +65,6 @@ export default function Home() {
             boxSizing: "border-box",
           }}
         >
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 90,
-              overflow: "hidden",
-              pointerEvents: "none",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 90,
-                background: "linear-gradient(180deg,rgba(255,70,85,0.1),transparent)",
-                animation: "vmcp-landing-scan 6s linear infinite",
-              }}
-            />
-          </div>
-
           <div
             style={{
               display: "flex",

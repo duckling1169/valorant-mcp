@@ -46,7 +46,6 @@ export function OpsPanel({
       }}
     >
       <style>{`
-        @keyframes vmcp-scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
         @keyframes vmcp-spin { to { transform: rotate(360deg); } }
       `}</style>
 
@@ -85,18 +84,6 @@ export function OpsPanel({
             pointerEvents: "none",
           }}
         />
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 80,
-            background: "linear-gradient(180deg,rgba(255,70,85,0.08),transparent)",
-            animation: "vmcp-scan 6s linear infinite",
-          }}
-        />
-
         <div
           style={{
             position: "relative",
