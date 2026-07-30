@@ -1,4 +1,5 @@
-import { colors, headFont, monoFont, primaryButtonStyle } from "@/app/_components/theme";
+import { colors, headFont, monoFont } from "@/app/_components/theme";
+import { InviteCodeForm } from "@/app/_components/InviteCodeForm";
 
 const GITHUB_URL = "https://github.com/duckling1169/valorant-mcp";
 
@@ -164,22 +165,8 @@ export default function Home() {
             plain English instead of tabbing to a tracker site.
           </div>
 
-          <div style={{ display: "flex", gap: 14, marginTop: 32, flexWrap: "wrap" }}>
-            <a href="/login" style={{ ...primaryButtonStyle, textDecoration: "none", display: "inline-block" }}>
-              ENTER INVITE CODE →
-            </a>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                fontFamily: monoFont,
-                fontSize: 12,
-                color: "#6b6b74",
-                letterSpacing: "0.06em",
-              }}
-            >
-              INVITE-ONLY: ASK THE OWNER TO ADD YOUR RIOT ID
-            </div>
+          <div style={{ marginTop: 32 }}>
+            <InviteCodeForm />
           </div>
 
           <div
