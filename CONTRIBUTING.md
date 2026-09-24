@@ -105,9 +105,9 @@ Do not provide a chronological activity log or hidden-reasoning transcript.
 ## Project-specific rules
 
 - Dependencies: maintainer approval is required before adding or materially changing a dependency; update lockfiles only through the package manager selected for the implementation.
-- CI and merging: M1 must add GitHub Actions that runs format checks, linting, typechecking, and Vitest on pushes and pull requests. The maintainer decides integration after required checks pass.
+- CI and merging: GitHub Actions runs format checks, linting, typechecking, and Vitest on pushes and pull requests. The maintainer decides integration after required checks pass.
 - Provider checks: CI uses deterministic fixtures only. A real HenrikDev smoke test uses the maintainer's key and is manually invoked; it never runs in CI or exposes credentials.
-- Deployment flow: feature work integrates through `dev`, which deploys to the authenticated Vercel preview environment. `main` is production only; promote only after the manual HenrikDev smoke test passes.
+- Deployment flow: feature work integrates through `main`, the sole deployment branch. Pull request previews may be used for validation; merging to `main` deploys production. Run the manual HenrikDev smoke test before merging deployment changes.
 - Releases: no release process is defined yet.
 - Additional protected surfaces: HenrikDev keys, Supabase/Vercel configuration, OAuth behavior, player consent/access records, cached match data, and all production deployment changes require explicit maintainer approval.
 

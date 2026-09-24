@@ -2,19 +2,49 @@ import type { Endpoints } from "./endpoints";
 import type { OperatorIdentity } from "./identity";
 import { guardTool, type Envelope } from "./envelope";
 import { computeWon, toLightCachedMatchRow } from "./recent-matches";
-import { agentRole, type AgentRole } from "./agent-roles";
 import type { MatchCache } from "./match-cache";
 import { safeDivide } from "./math";
 import { cacheFailOpen } from "./cache-fail-open";
 import { toRankSummary, type Profile } from "./profile";
 
-// get_player_stats({ sample_size? }) — pooled descriptive stats across the
-// operator's recent competitive matches (M2's T1 facets: impact distributions,
-// headshot %, per-agent breakdown, survival rate, rank/RR/peak/climb, best/worst
-// game). No new consent boundary — same operator-only scope as M1's tools.
-// Standard error is deliberately omitted: it describes confidence in the mean
-// estimator, not the player's actual performance, so it doesn't meet
-// ARCHITECTURE.md's "descriptive statistics" bar (ARCHITECTURE.md, 2026-07-28).
+export type AgentRole = "duelist" | "initiator" | "controller" | "sentinel";
+
+// HenrikDev's agent content does not include role classifications.
+const AGENT_ROLES: Record<string, AgentRole> = {
+  Astra: "controller",
+  Breach: "initiator",
+  Brimstone: "controller",
+  Chamber: "sentinel",
+  Clove: "controller",
+  Cypher: "sentinel",
+  Deadlock: "sentinel",
+  Fade: "initiator",
+  Gekko: "initiator",
+  Harbor: "controller",
+  Iso: "duelist",
+  Jett: "duelist",
+  "KAY/O": "initiator",
+  Killjoy: "sentinel",
+  Neon: "duelist",
+  Omen: "controller",
+  Phoenix: "duelist",
+  Raze: "duelist",
+  Reyna: "duelist",
+  Sage: "sentinel",
+  Skye: "initiator",
+  Sova: "initiator",
+  Tejo: "initiator",
+  Viper: "controller",
+  Vyse: "sentinel",
+  Waylay: "duelist",
+  Yoru: "duelist",
+};
+
+function agentRole(name: string | null): AgentRole | null {
+  return name ? (AGENT_ROLES[name] ?? null) : null;
+}
+
+// Pooled descriptive stats across the operator's recent competitive matches.
 
 export interface StatDistribution {
   mean: number;

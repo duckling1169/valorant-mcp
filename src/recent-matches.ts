@@ -1,21 +1,46 @@
 import type { Endpoints } from "./endpoints";
 import type { OperatorIdentity } from "./identity";
 import { guardTool, type Envelope } from "./envelope";
-import { tierName } from "./tiers";
 import type { StoredMatchesResponse } from "./henrik-schemas";
 import type { MatchCache, NewLightCachedMatchRow } from "./match-cache";
 import { cacheFailOpen } from "./cache-fail-open";
 
-// get_recent_matches({ limit? }) — recent competitive matches only, bound to the
-// one configured operator profile. `limit` is validated by the MCP tool's declared
-// zod inputSchema (1-10, default 10), not our own InputError — see ARCHITECTURE.md
-// decisions and the Slice 4 plan for why that split is the right one here.
-//
-// M3 slice 3: also write-throughs "light" rows to MatchCache (operator's own
-// stat line only — stored-matches has no other participants, so this can
-// never be a valid MatchDetail). Never overwrites an existing row, light or
-// full (see match-cache.ts); fail-open, same as get_match_detail's write path.
-// player-stats.ts reuses toLightCachedMatchRow for the same mapping.
+const TIER_NAMES: readonly string[] = [
+  "Unrated",
+  "Unknown 1",
+  "Unknown 2",
+  "Iron 1",
+  "Iron 2",
+  "Iron 3",
+  "Bronze 1",
+  "Bronze 2",
+  "Bronze 3",
+  "Silver 1",
+  "Silver 2",
+  "Silver 3",
+  "Gold 1",
+  "Gold 2",
+  "Gold 3",
+  "Platinum 1",
+  "Platinum 2",
+  "Platinum 3",
+  "Diamond 1",
+  "Diamond 2",
+  "Diamond 3",
+  "Ascendant 1",
+  "Ascendant 2",
+  "Ascendant 3",
+  "Immortal 1",
+  "Immortal 2",
+  "Immortal 3",
+  "Radiant",
+];
+
+export function tierName(id: number): string | null {
+  return TIER_NAMES[id] ?? null;
+}
+
+// Recent competitive matches for the operator's identity.
 
 export interface RecentMatch {
   match_id: string;

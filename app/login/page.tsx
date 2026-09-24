@@ -13,17 +13,23 @@ import {
   textLinkStyle,
 } from "@/app/_components/OpsPanel";
 
-type Status = "idle" | "sending" | "sent" | "error";
+type Status =
+  "idle" | "sending" | "code" | "verifying" | "send-error" | "verify-error";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [token, setToken] = useState("");
   const [status, setStatus] = useState<Status>("idle");
+
+  function getNextPath() {
+    return new URLSearchParams(window.location.search).get("next") ?? "/";
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("sending");
 
-    const next = new URLSearchParams(window.location.search).get("next") ?? "/";
+    const next = getNextPath();
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
     const supabase = createBrowserSupabaseClient();
@@ -31,12 +37,36 @@ export default function LoginPage() {
       email,
       options: { emailRedirectTo },
     });
-    setStatus(error ? "error" : "sent");
+    setStatus(error ? "send-error" : "code");
+  }
+
+  async function handleVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("verifying");
+
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: token.trim(),
+      type: "email",
+    });
+
+    if (error) {
+      setStatus("verify-error");
+      return;
+    }
+
+    window.location.href = getNextPath();
   }
 
   return (
-    <OpsPanel eyebrow="/login: operator setting up their MCP client" badge="OPERATOR SETUP">
-      {status === "sent" ? (
+    <OpsPanel
+      eyebrow="/login: operator setting up their MCP client"
+      badge="OPERATOR SETUP"
+    >
+      {status === "code" ||
+      status === "verifying" ||
+      status === "verify-error" ? (
         <div
           style={{
             margin: "auto 0",
@@ -56,9 +86,9 @@ export default function LoginPage() {
               lineHeight: 1.15,
             }}
           >
-            LINK
+            CHECK
             <br />
-            DEPLOYED
+            YOUR EMAIL
           </div>
           <div
             style={{
@@ -68,13 +98,60 @@ export default function LoginPage() {
               lineHeight: 1.6,
             }}
           >
-            Check <span style={{ color: colors.text }}>{email}</span> for
-            your access link. Expires in 15 minutes; your MCP client stays
-            benched until you confirm.
+            Enter the sign-in code sent to{" "}
+            <span style={{ color: colors.text }}>{email}</span>. This browser
+            will resume your pending MCP authorization after verification.
           </div>
-          <div onClick={() => setStatus("idle")} style={textLinkStyle}>
+          <form
+            onSubmit={handleVerify}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              width: "100%",
+            }}
+          >
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={token}
+              onChange={(event) => setToken(event.target.value)}
+              placeholder="EMAIL CODE"
+              required
+              style={inputStyle}
+            />
+            <button
+              type="submit"
+              disabled={status === "verifying"}
+              style={{
+                ...primaryButtonStyle,
+                opacity: status === "verifying" ? 0.6 : 1,
+              }}
+            >
+              {status === "verifying" ? "VERIFYING…" : "VERIFY CODE →"}
+            </button>
+          </form>
+          <div
+            onClick={() => {
+              setToken("");
+              setStatus("idle");
+            }}
+            style={textLinkStyle}
+          >
             USE A DIFFERENT EMAIL
           </div>
+          {status === "verify-error" && (
+            <div
+              style={{
+                fontFamily: monoFont,
+                fontSize: 11,
+                color: colors.redLight,
+              }}
+            >
+              That code could not be verified. Request a new code and try again.
+            </div>
+          )}
         </div>
       ) : (
         <form
@@ -109,7 +186,9 @@ export default function LoginPage() {
             }
           </div>
 
-          <div style={{ display: "flex", gap: 6, marginTop: 20, flexWrap: "wrap" }}>
+          <div
+            style={{ display: "flex", gap: 6, marginTop: 20, flexWrap: "wrap" }}
+          >
             <span
               style={{
                 fontFamily: monoFont,
@@ -173,7 +252,7 @@ export default function LoginPage() {
                 cursor: status === "sending" ? "default" : "pointer",
               }}
             >
-              {status === "sending" ? "DEPLOYING…" : "DEPLOY ACCESS LINK →"}
+              {status === "sending" ? "SENDING…" : "SEND SIGN-IN CODE →"}
             </button>
             <div
               style={{
@@ -186,7 +265,7 @@ export default function LoginPage() {
             >
               INVITE-ONLY · NO LOOKUP WITHOUT CONSENT
             </div>
-            {status === "error" && (
+            {status === "send-error" && (
               <div
                 style={{
                   fontFamily: monoFont,

@@ -4,19 +4,6 @@
 
 `valorant-mcp` is a private Streamable HTTP MCP server. It provides factual, compact VALORANT data to OAuth-authenticated LLM clients, scoped to each authenticated user's own VALORANT profile and any profile that has explicitly consented to be looked up. HenrikDev is the only data provider. Interpretation and coaching remain with the client model.
 
-## Components
-
-| Component | Responsibility | Depends on |
-|---|---|---|
-| Next.js MCP route (`app/api/[transport]`) | Serve `/api/mcp`; validate requests, enforce policy, project factual/token-efficient responses | MCP SDK, `mcp-handler`, Identity |
-| HenrikDev client (`src/henrik-client.ts`, `src/endpoints.ts`, `src/rate-budget.ts`) | Fetch account, MMR, match-list, and match-detail data under a shared rate budget (Basic tier: 30 req/min) | HenrikDev API |
-| Authorization (`src/verify-token.ts`, `app/login`, `app/oauth/consent`) | Authenticate a user through Supabase Auth email magic-link; approve MCP OAuth clients | Supabase Auth |
-| Identity (`src/identity.ts`, `src/target.ts`) | Resolve the authenticated request to a VALORANT identity — the caller's own, or (via `target_name`/`target_tag`) a consented profile's | Supabase Postgres, Authorization |
-| Onboarding (`app/claim`, `app/api/claim`, `app/api/admin/invite`) | Admin mints a one-time invite code for a Riot ID; the invitee redeems it under whatever email they sign in with | Supabase Postgres, HenrikDev client |
-| Cache (`src/match-cache.ts`) | Bounded, per-identity cache of already-authorized match data | Supabase Postgres |
-
-## Architecture
-
 ```mermaid
 flowchart TB
   subgraph Client
@@ -27,11 +14,11 @@ flowchart TB
     MCP["/api/mcp route<br/>(8 tools)"]
     Claim["/claim + /api/claim<br/>(invite redemption)"]
     Admin["/api/admin/invite<br/>(ADMIN_API_KEY)"]
-    Login["/login + /oauth/consent<br/>(magic-link + OAuth approval)"]
+    Login["/login + /oauth/consent<br/>(email sign-in + OAuth approval)"]
   end
 
   subgraph Supabase
-    Auth[Supabase Auth<br/>OAuth 2.1 server + magic link]
+    Auth[Supabase Auth<br/>OAuth 2.1 server + email sign-in]
     DB[(Postgres:<br/>consented_profiles, mcp_users,<br/>mcp_invites, cached_matches)]
   end
 
@@ -41,78 +28,13 @@ flowchart TB
   MCP -- verify JWT via JWKS --> Auth
   MCP -- resolve identity / cache --> DB
   MCP -- live data --> H
-  C -. magic link .-> Login
+  C -. sign-in .-> Login
   Login --> Auth
   C -. claim link .-> Claim
   Claim --> Auth
   Claim --> DB
   Admin --> H
   Admin --> DB
-```
-
-## Request flow: identity resolution and cache
-
-```mermaid
-sequenceDiagram
-  participant Client
-  participant Route as MCP route
-  participant Auth as Supabase Auth (JWKS)
-  participant DB as Postgres
-  participant Henrik as HenrikDev
-
-  Client->>Route: tool call + bearer token
-  Route->>Auth: verify JWT (issuer + audience)
-  Auth-->>Route: payload (email claim)
-  Route->>DB: mcp_users.email -> puuid
-  Route->>DB: consented_profiles.puuid -> region/platform
-  DB-->>Route: resolved identity (self)
-  opt target_name/target_tag given
-    Route->>DB: consented_profiles lookup by name/tag
-    DB-->>Route: resolved identity (target)
-  end
-  Route->>DB: cache lookup, scoped to (identity.puuid, ...)
-  alt cache hit
-    DB-->>Route: cached row
-  else cache miss
-    Route->>Henrik: live fetch
-    Henrik-->>Route: data
-    Route->>DB: write-through (fail-open)
-  end
-  Route-->>Client: envelope { ok, data | error }
-```
-
-## Data model
-
-```mermaid
-erDiagram
-  consented_profiles ||--o{ mcp_users : "puuid"
-  consented_profiles ||--o{ mcp_invites : "puuid"
-  consented_profiles ||--o{ cached_matches : "operator_puuid"
-
-  consented_profiles {
-    text puuid PK
-    text name
-    text tag
-    text region
-    text platform
-  }
-  mcp_users {
-    text email PK
-    text puuid FK
-  }
-  mcp_invites {
-    text code PK
-    text puuid FK
-    timestamptz claimed_at
-    text claimed_email
-  }
-  cached_matches {
-    text operator_puuid PK
-    text match_id PK
-    jsonb detail
-    boolean has_insight
-    timestamptz cached_at
-  }
 ```
 
 ## Consent model
@@ -124,7 +46,7 @@ Two lists, enforced by a foreign key (`mcp_users.puuid -> consented_profiles.puu
 
 An email not present in `mcp_users` is treated identically to an invalid token (401) — List 1 is the auth gate `verify-token.ts` checks, not List 2 directly.
 
-**Onboarding**: `POST /api/admin/invite` (shared-secret `ADMIN_API_KEY`) resolves a Riot ID via HenrikDev, upserts `consented_profiles`, and mints a single-use `mcp_invites` code. The invitee opens `/claim?code=...`, signs in via Supabase magic link with whatever email they choose, and that email becomes their `mcp_users` row.
+**Onboarding**: `POST /api/admin/invite` (`ADMIN_API_KEY`) resolves a Riot ID via HenrikDev, upserts `consented_profiles`, and mints a single-use invite code. The invitee opens `/claim?code=...`, signs in with their chosen email, and that email becomes their `mcp_users` row.
 
 **Widened lookup**: any tool accepting `target_name`/`target_tag` resolves that pair against `consented_profiles` and acts on the target's identity instead of the caller's own (`src/target.ts`) — never a live HenrikDev name/tag search. A name/tag that isn't a consented profile is rejected the same way whether it doesn't exist or simply hasn't consented (never distinguishing the two). `compare_match`/`compare_rank` resolve their opponent per-call by name/tag within a shared match instead, and `search_match_history` is inherently self-scoped.
 

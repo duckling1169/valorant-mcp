@@ -9,7 +9,7 @@ An always-available, private MCP server that gives its owner’s LLM client fact
 
 ## Quick start
 
-The project targets Node.js 24.x and pnpm 10.x. M1–M4 are complete and deployed (see [ARCHITECTURE.md](ARCHITECTURE.md)); [BACKLOG.md](BACKLOG.md) tracks any active near-term work.
+The project targets Node.js 24.x and pnpm 10.x. See [ARCHITECTURE.md](ARCHITECTURE.md) for its current design.
 
 ```sh
 pnpm install
@@ -24,11 +24,11 @@ sh scripts/check-agent-docs.sh
 
 ## Normal use
 
-Any OAuth-authenticated, consented user asks an MCP client (e.g. Claude) for VALORANT data via eight tools: `get_profile`, `get_recent_matches`, `get_match_detail`, `get_player_stats`, `get_rank_history`, `compare_match`, `compare_rank`, and `search_match_history`. Most accept optional `target_name`/`target_tag` to look up a consented friend's data instead of the caller's own. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full tool table and consent model.
+Any OAuth-authenticated, consented user can request VALORANT data through the MCP endpoint. Most tools can target a consented friend's profile; see [ARCHITECTURE.md](ARCHITECTURE.md) for scope and tool details.
 
 ## Onboarding a new user
 
-Access is invite-only (M4's two-list consent model — see [ARCHITECTURE.md](ARCHITECTURE.md)). To invite someone, call the admin endpoint with their Riot ID (name#tag):
+Access is invite-only. To invite someone, call the admin endpoint with their Riot ID (name#tag):
 
 ```sh
 curl -X POST https://valorant-mcp.vercel.app/api/admin/invite \
@@ -37,14 +37,11 @@ curl -X POST https://valorant-mcp.vercel.app/api/admin/invite \
   -d '{"name": "friend", "tag": "1234"}'
 ```
 
-This resolves the Riot ID via HenrikDev, adds them to `consented_profiles`, and mints a one-time invite code. The response is `{"code": "...", "claim_url": "..."}` — send `claim_url` to the person being invited. They open it, sign in via Supabase magic link with whatever email they want, and that email becomes their `mcp_users` row (their MCP client should then point at `https://valorant-mcp.vercel.app/api/mcp`, same as any other user). `ADMIN_API_KEY` lives in Vercel's Preview/Production env vars and the owner's local `.env` — never commit or share it.
+This resolves the Riot ID via HenrikDev, adds them to `consented_profiles`, and mints a one-time invite code. Send the returned `claim_url` to the invitee. They sign in via Supabase email OTP or magic link, and their email becomes their `mcp_users` row. Their MCP client endpoint is `https://valorant-mcp.vercel.app/api/mcp`. Keep `ADMIN_API_KEY` in Vercel's Preview/Production env vars or the owner's local `.env`; never commit or share it.
 
-## Project documents
+### Email OTP setup
 
-- [ARCHITECTURE.md](ARCHITECTURE.md): boundaries, data flow, and public contracts.
-- [CONTRIBUTING.md](CONTRIBUTING.md): development and release workflow.
-- [BACKLOG.md](BACKLOG.md): bounded near-term work.
-- [ROADMAP.md](ROADMAP.md): optional longer-term direction.
+The login page supports entering a one-time code in the same browser that started OAuth. In the Supabase dashboard, change the **Magic Link** email template to use `{{ .Token }}` instead of `{{ .ConfirmationURL }}`; Supabase sends a link when the template contains `{{ .ConfirmationURL }}`. The existing callback still supports magic links opened in the browser that initiated sign-in; entering the code avoids cross-browser PKCE failures.
 
 ## License
 

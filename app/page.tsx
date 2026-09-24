@@ -1,5 +1,10 @@
-import { colors, headFont, monoFont } from "@/app/_components/theme";
-import { InviteCodeForm } from "@/app/_components/InviteCodeForm";
+import {
+  colors,
+  headFont,
+  monoFont,
+  inputStyle,
+  primaryButtonStyle,
+} from "@/app/_components/theme";
 
 const GITHUB_URL = "https://github.com/duckling1169/valorant-mcp";
 
@@ -133,12 +138,52 @@ export default function Home() {
             }}
           >
             An MCP server that lets Claude and other assistants pull live
-            Valorant match history, ranks, and stats. Ask about a game in
-            plain English instead of tabbing to a tracker site.
+            Valorant match history, ranks, and stats. Ask about a game in plain
+            English instead of tabbing to a tracker site.
           </div>
 
           <div style={{ marginTop: 32 }}>
-            <InviteCodeForm />
+            <form
+              action="/claim"
+              method="get"
+              style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+            >
+              <input
+                type="text"
+                name="code"
+                placeholder="invite code"
+                pattern=".*\\S.*"
+                required
+                style={{
+                  ...inputStyle,
+                  width: 180,
+                  fontSize: 13,
+                  padding: "12px 14px",
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  ...primaryButtonStyle,
+                  fontSize: 13,
+                  padding: "12px 18px",
+                }}
+              >
+                ENTER INVITE CODE →
+              </button>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  fontFamily: monoFont,
+                  fontSize: 12,
+                  color: "#6b6b74",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                INVITE-ONLY: ASK THE OWNER TO ADD YOUR RIOT ID
+              </div>
+            </form>
           </div>
 
           <div
@@ -152,7 +197,10 @@ export default function Home() {
             }}
           >
             {features.map((feature) => (
-              <div key={feature.label} style={{ background: colors.panel, padding: "26px 24px" }}>
+              <div
+                key={feature.label}
+                style={{ background: colors.panel, padding: "26px 24px" }}
+              >
                 <div
                   style={{
                     fontFamily: monoFont,
@@ -203,7 +251,10 @@ export default function Home() {
               letterSpacing: "0.06em",
             }}
           >
-            <a href={GITHUB_URL} style={{ color: "#4d4d55", textDecoration: "none" }}>
+            <a
+              href={GITHUB_URL}
+              style={{ color: "#4d4d55", textDecoration: "none" }}
+            >
               SOURCE ON GITHUB
             </a>
             <span>POWERED BY HENRIKDEV</span>
