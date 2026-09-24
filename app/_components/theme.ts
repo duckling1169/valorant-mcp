@@ -8,7 +8,10 @@ import type { CSSProperties } from "react";
 // these live in their own plain module that either kind of component can
 // import from.
 
-const chakraPetch = Chakra_Petch({ subsets: ["latin"], weight: ["600", "700"] });
+const chakraPetch = Chakra_Petch({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+});
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "700"],

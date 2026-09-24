@@ -71,7 +71,8 @@ export function OpsPanel({
           position: "relative",
           overflow: "hidden",
           border: `1px solid ${colors.border}`,
-          clipPath: "polygon(0 0,100% 0,100% 100%,24px 100%,0 calc(100% - 24px))",
+          clipPath:
+            "polygon(0 0,100% 0,100% 100%,24px 100%,0 calc(100% - 24px))",
           boxSizing: "border-box",
         }}
       >

@@ -138,7 +138,8 @@ export default function ClaimPage() {
                 }}
               />
               <span>
-                invite matched <span style={{ color: colors.text }}>{handle}</span>
+                invite matched{" "}
+                <span style={{ color: colors.text }}>{handle}</span>
               </span>
             </div>
           )}
@@ -178,7 +179,10 @@ export default function ClaimPage() {
                 body: "head-to-head against a teammate",
               },
             ].map((tile) => (
-              <div key={tile.label} style={{ background: "#17171c", padding: "12px 14px" }}>
+              <div
+                key={tile.label}
+                style={{ background: "#17171c", padding: "12px 14px" }}
+              >
                 <div
                   style={{
                     fontFamily: monoFont,
@@ -236,7 +240,13 @@ export default function ClaimPage() {
           >
             404
           </div>
-          <div style={{ fontFamily: monoFont, fontSize: 12, color: colors.textDim }}>
+          <div
+            style={{
+              fontFamily: monoFont,
+              fontSize: 12,
+              color: colors.textDim,
+            }}
+          >
             Missing invite code.
           </div>
           <Link href="/" style={{ ...textLinkStyle, marginTop: 6 }}>
