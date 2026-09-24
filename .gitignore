@@ -19,4 +19,3 @@ coverage/
 # OS and editor noise
 .DS_Store
 *.swp
-.vercel

@@ -11,6 +11,9 @@ An always-available, private MCP server that gives its owner’s LLM client fact
 
 The project targets Node.js 24.x and pnpm 10.x. See [ARCHITECTURE.md](ARCHITECTURE.md) for its current design.
 
+Copy `.env.example` to `.env` and fill in the Supabase URL, publishable key,
+service-role key, HenrikDev API key, and admin API key before starting the app.
+
 ```sh
 pnpm install
 pnpm dev

@@ -2,7 +2,7 @@
 // HenrikDev smoke test uses the maintainer's key and is manually invoked; it never
 // runs in CI"). Run with: pnpm smoke:profile
 
-import { loadConfig, type Region, type Platform } from "../src/config";
+import { loadConfig, platformSchema, regionSchema } from "../src/config";
 import { HenrikClient } from "../src/henrik-client";
 import { Endpoints } from "../src/endpoints";
 import { getProfile } from "../src/profile";
@@ -17,8 +17,10 @@ const endpoints = new Endpoints(client);
 
 const operatorPuuid = process.env.VALORANT_OPERATOR_PUUID;
 if (!operatorPuuid) throw new Error("VALORANT_OPERATOR_PUUID is required");
-const operatorRegion = (process.env.VALORANT_REGION ?? "na") as Region;
-const operatorPlatform = (process.env.VALORANT_PLATFORM ?? "pc") as Platform;
+const operatorRegion = regionSchema.parse(process.env.VALORANT_REGION ?? "na");
+const operatorPlatform = platformSchema.parse(
+  process.env.VALORANT_PLATFORM ?? "pc",
+);
 
 const envelope = await getProfile({
   endpoints,
