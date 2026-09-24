@@ -1,13 +1,8 @@
-import { readFileSync } from "node:fs";
+import { loadFixture } from "../test/fixture-loader";
 import { describe, it, expect, vi } from "vitest";
 import { getRankHistory } from "./rank-history";
 import type { Endpoints } from "./endpoints";
 import { UpstreamError } from "./errors";
-
-function loadFixture(name: string): unknown {
-  const path = new URL(`../test/fixtures/${name}`, import.meta.url);
-  return JSON.parse(readFileSync(path, "utf-8"));
-}
 
 const config = {
   operatorPuuid: "abc-123",

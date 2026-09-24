@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { loadFixture } from "../test/fixture-loader";
 import {
   accountByPuuidSchema,
   mmrByPuuidSchema,
@@ -10,13 +9,6 @@ import {
   parseHenrikPayload,
 } from "./henrik-schemas";
 import { SchemaError } from "./errors";
-
-function loadFixture(name: string): unknown {
-  const path = fileURLToPath(
-    new URL(`../test/fixtures/${name}`, import.meta.url),
-  );
-  return JSON.parse(readFileSync(path, "utf-8"));
-}
 
 describe("henrik-schemas", () => {
   it("parses a valid account-v2 fixture", () => {
@@ -67,29 +59,20 @@ describe("henrik-schemas", () => {
     expect(parsed.data[0]?.stats.damage.made).toBe(4000);
   });
 
-  it("fails closed with SchemaError when a stored-matches damage field is missing", () => {
-    const body = loadFixture("stored-matches-v1.json") as {
-      data: Array<{ stats: Record<string, unknown> }>;
-    };
-    const first = body.data[0];
-    if (!first) throw new Error("fixture missing first match");
-    delete first.stats.damage;
-    expect(() => parseHenrikPayload(storedMatchesSchema, body)).toThrow(
-      SchemaError,
-    );
-  });
-
-  it("fails closed with SchemaError when a stored-matches field is missing", () => {
-    const body = loadFixture("stored-matches-v1.json") as {
-      data: Array<{ stats: Record<string, unknown> }>;
-    };
-    const first = body.data[0];
-    if (!first) throw new Error("fixture missing first match");
-    delete first.stats.kills;
-    expect(() => parseHenrikPayload(storedMatchesSchema, body)).toThrow(
-      SchemaError,
-    );
-  });
+  it.each(["damage", "kills"] as const)(
+    "fails closed with SchemaError when stored-matches stats.%s is missing",
+    (field) => {
+      const body = loadFixture("stored-matches-v1.json") as {
+        data: Array<{ stats: Record<string, unknown> }>;
+      };
+      const first = body.data[0];
+      if (!first) throw new Error("fixture missing first match");
+      delete first.stats[field];
+      expect(() => parseHenrikPayload(storedMatchesSchema, body)).toThrow(
+        SchemaError,
+      );
+    },
+  );
 
   it("parses a valid match-v4 fixture", () => {
     const body = loadFixture("match-v4.json");
