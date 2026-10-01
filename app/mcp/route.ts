@@ -14,8 +14,7 @@ import { currentIdentity, requestIdentity } from "@/lib/identity";
 import { resolveTarget } from "@/lib/target";
 
 // Each request acts as the consented profile its connection key belongs to
-// (lib/connections.ts). Only the HenrikDev client and cache are shared.
-const { endpoints, db: serviceClient, cache } = getServices();
+// (lib/connections.ts). Services are created on first request (lib/services.ts).
 
 // M4 slice 4: any tool taking this input may act on a consented profile
 // (List 2) instead of the caller's own identity — resolved only against
@@ -40,7 +39,7 @@ async function resolveEffectiveIdentity(target: {
   target_name?: string;
   target_tag?: string;
 }) {
-  return resolveTarget(serviceClient, currentIdentity(), target);
+  return resolveTarget(getServices().db, currentIdentity(), target);
 }
 
 const mcpHandler = createMcpHandler(
@@ -57,7 +56,10 @@ const mcpHandler = createMcpHandler(
           target_name,
           target_tag,
         });
-        const envelope = await getProfile({ endpoints, config: identity });
+        const envelope = await getProfile({
+          endpoints: getServices().endpoints,
+          config: identity,
+        });
         return toToolResult(envelope);
       },
     );
@@ -78,7 +80,7 @@ const mcpHandler = createMcpHandler(
           target_tag,
         });
         const envelope = await getRecentMatches(
-          { endpoints, config: identity, cache },
+          { ...getServices(), config: identity },
           { limit: limit ?? 10 },
         );
         return toToolResult(envelope);
@@ -102,7 +104,7 @@ const mcpHandler = createMcpHandler(
           target_tag,
         });
         const envelope = await getMatchDetail(
-          { endpoints, config: identity, cache },
+          { ...getServices(), config: identity },
           { match_id, include_insight },
         );
         return toToolResult(envelope);
@@ -125,7 +127,7 @@ const mcpHandler = createMcpHandler(
           target_tag,
         });
         const envelope = await getPlayerStats(
-          { endpoints, config: identity, cache },
+          { ...getServices(), config: identity },
           { sample_size: sample_size ?? 20 },
         );
         return toToolResult(envelope);
@@ -148,7 +150,7 @@ const mcpHandler = createMcpHandler(
       async ({ match_id, opponent_name, opponent_tag }) => {
         const identity = currentIdentity();
         const envelope = await compareMatch(
-          { endpoints, config: identity },
+          { endpoints: getServices().endpoints, config: identity },
           { match_id, opponent_name, opponent_tag },
         );
         return toToolResult(envelope);
@@ -165,7 +167,7 @@ const mcpHandler = createMcpHandler(
       async ({ match_id, opponent_name, opponent_tag }) => {
         const identity = currentIdentity();
         const envelope = await compareRank(
-          { endpoints, config: identity },
+          { endpoints: getServices().endpoints, config: identity },
           { match_id, opponent_name, opponent_tag },
         );
         return toToolResult(envelope);
@@ -194,7 +196,7 @@ const mcpHandler = createMcpHandler(
           target_tag,
         });
         const envelope = await getRankHistory(
-          { endpoints, config: identity },
+          { endpoints: getServices().endpoints, config: identity },
           { limit: limit ?? 20, since_match_id },
         );
         return toToolResult(envelope);
@@ -222,7 +224,7 @@ const mcpHandler = createMcpHandler(
       async ({ map, agent, act, rank, date_from, date_to, limit }) => {
         const identity = currentIdentity();
         const envelope = await searchMatchHistory(
-          { cache, config: identity },
+          { cache: getServices().cache, config: identity },
           { map, agent, act, rank, date_from, date_to, limit: limit ?? 20 },
         );
         return toToolResult(envelope);
@@ -258,7 +260,7 @@ function unauthorized(): Response {
 async function handler(req: Request): Promise<Response> {
   const key = extractKey(req);
   const identity = key
-    ? await identityForKey(serviceClient, key).catch(() => null)
+    ? await identityForKey(getServices().db, key).catch(() => null)
     : null;
   if (!identity) return unauthorized();
   return requestIdentity.run(identity, () => mcpHandler(req));
