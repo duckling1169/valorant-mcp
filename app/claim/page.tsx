@@ -1,24 +1,8 @@
-import type { CSSProperties } from "react";
-import { colors, headFont } from "@/app/_components/theme";
 import { getInvite } from "@/lib/connections";
 import { getServices } from "@/lib/services";
 import { ClaimForm } from "./form";
 
 export const dynamic = "force-dynamic";
-
-const page: CSSProperties = {
-  minHeight: "100vh",
-  background: colors.bg,
-  color: colors.text,
-  padding: "40px 16px",
-};
-const column: CSSProperties = {
-  maxWidth: 560,
-  margin: "0 auto",
-  display: "flex",
-  flexDirection: "column",
-  gap: 16,
-};
 
 export default async function ClaimPage({
   searchParams,
@@ -29,34 +13,39 @@ export default async function ClaimPage({
   const invite = code ? await getInvite(getServices().db, code) : null;
 
   return (
-    <main style={page}>
-      <div style={column}>
-        <h1 style={{ fontFamily: headFont, fontSize: 32, margin: 0 }}>
-          Connect your VALORANT stats
-        </h1>
-        {invite && code ? (
-          <>
+    <main className="page">
+      <div className="narrow">
+        <nav className="nav" aria-label="Main">
+          <a className="wordmark" href="/">
+            Valorant<span>/</span>MCP
+          </a>
+        </nav>
+        <section className="panel">
+          <h1>Connect your stats</h1>
+          {invite && code ? (
+            <>
+              <p className="lead">
+                You&apos;ve been invited to connect{" "}
+                <strong style={{ color: "var(--text)" }}>
+                  {invite.name}#{invite.tag}
+                </strong>{" "}
+                to an AI assistant through this server.
+              </p>
+              <p className="lead">
+                If you accept, you get your own connector URL, and people on
+                this server can look up your public VALORANT profile and match
+                history and compare against you. Nothing is shared until you
+                accept, and the server owner can remove you at any time.
+              </p>
+              <ClaimForm code={code} />
+            </>
+          ) : (
             <p>
-              You&apos;ve been invited to connect{" "}
-              <strong>
-                {invite.name}#{invite.tag}
-              </strong>{" "}
-              to an AI assistant through this server.
+              This invite link is invalid or has already been used. Ask for a
+              new one.
             </p>
-            <p style={{ color: colors.textDim }}>
-              If you accept, you get your own connector URL, and other people on
-              this server can look up your public VALORANT profile and match
-              history and compare against you. Nothing is shared until you
-              accept. The server owner can remove you at any time.
-            </p>
-            <ClaimForm code={code} />
-          </>
-        ) : (
-          <p style={{ color: colors.textDim }}>
-            This invite link is invalid or has already been used. Ask for a new
-            one.
-          </p>
-        )}
+          )}
+        </section>
       </div>
     </main>
   );

@@ -1,266 +1,114 @@
-import {
-  colors,
-  headFont,
-  monoFont,
-  inputStyle,
-  primaryButtonStyle,
-} from "@/app/_components/theme";
+import { Readout } from "./_components/Readout";
 
-const GITHUB_URL = "https://github.com/duckling1169/valorant-mcp";
-
-const features = [
-  {
-    label: "WHAT",
-    title: "8 tools over MCP",
-    body: "Profile, match history, per-match detail, rank, and head-to-head compare, wired straight into your assistant's tool list.",
-  },
-  {
-    label: "HOW",
-    title: "Consent-gated lookups",
-    body: "Every Riot ID is verified and allowlisted before data ever gets served. No open lookup, no scraping strangers' stats.",
-  },
-  {
-    label: "WHY",
-    title: "A build worth studying",
-    body: "Built solo end-to-end: auth, invite flow, third-party API integration, and a protocol server, shipped and running live.",
-  },
-];
+const REPO = "https://github.com/duckling1169/valorant-mcp";
+const DEPLOY =
+  "https://vercel.com/new/clone?repository-url=" +
+  encodeURIComponent(REPO) +
+  "&env=HENRIKDEV_API_KEY,OWNER_PASSWORD&envDescription=" +
+  encodeURIComponent(
+    "A HenrikDev API key, and any long password to unlock /setup.",
+  );
 
 export default function Home() {
   return (
-    <div
-      style={{
-        width: "100%",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: colors.bg,
-        padding: "clamp(24px, 6vw, 40px) 16px",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 900,
-          background: colors.panel,
-          position: "relative",
-          overflow: "hidden",
-          border: `1px solid ${colors.border}`,
-          boxSizing: "border-box",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "repeating-linear-gradient(0deg,rgba(255,255,255,0.02) 0px,rgba(255,255,255,0.02) 1px,transparent 1px,transparent 3px)",
-            pointerEvents: "none",
-          }}
-        />
-
-        <div
-          style={{
-            position: "relative",
-            padding:
-              "clamp(28px, 7vw, 64px) clamp(20px, 6vw, 60px) clamp(28px, 6vw, 56px)",
-            boxSizing: "border-box",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 10,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: headFont,
-                fontWeight: 700,
-                fontSize: 15,
-                letterSpacing: "0.16em",
-                color: colors.text,
-              }}
-            >
-              VALORANT<span style={{ color: colors.red }}>·MCP</span>
-            </div>
-            <div
-              style={{
-                fontFamily: monoFont,
-                fontSize: 10,
-                color: "#6b6b74",
-                letterSpacing: "0.1em",
-                border: "1px solid #2c2c34",
-                padding: "5px 10px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              OPEN SOURCE · SOLO BUILD
-            </div>
-          </div>
-
-          <div
-            style={{
-              height: 1,
-              background: `linear-gradient(90deg,${colors.red},transparent)`,
-              margin: "32px 0 40px",
-            }}
-          />
-
-          <div
-            style={{
-              fontFamily: headFont,
-              fontWeight: 700,
-              fontSize: "clamp(30px, 6vw, 52px)",
-              color: colors.heading,
-              lineHeight: 1.08,
-              letterSpacing: "0.01em",
-              maxWidth: 640,
-            }}
-          >
-            GIVE YOUR AI ASSISTANT
-            <br />A <span style={{ color: colors.red }}>RIOT ID.</span>
-          </div>
-          <div
-            style={{
-              fontFamily: monoFont,
-              fontSize: 14,
-              color: colors.textDim,
-              marginTop: 18,
-              maxWidth: 560,
-              lineHeight: 1.6,
-            }}
-          >
-            An MCP server that lets Claude and other assistants pull live
-            Valorant match history, ranks, and stats. Ask about a game in plain
-            English instead of tabbing to a tracker site.
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <form
-              action="/claim"
-              method="get"
-              style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-            >
-              <input
-                type="text"
-                name="code"
-                placeholder="invite code"
-                pattern=".*\\S.*"
-                required
-                style={{
-                  ...inputStyle,
-                  width: 180,
-                  fontSize: 13,
-                  padding: "12px 14px",
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  ...primaryButtonStyle,
-                  fontSize: 13,
-                  padding: "12px 18px",
-                }}
-              >
-                ENTER INVITE CODE →
-              </button>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  fontFamily: monoFont,
-                  fontSize: 12,
-                  color: "#6b6b74",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                INVITE-ONLY: ASK THE OWNER TO ADD YOUR RIOT ID
-              </div>
-            </form>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-              gap: 1,
-              background: colors.border,
-              marginTop: 56,
-              border: `1px solid ${colors.border}`,
-            }}
-          >
-            {features.map((feature) => (
-              <div
-                key={feature.label}
-                style={{ background: colors.panel, padding: "26px 24px" }}
-              >
-                <div
-                  style={{
-                    fontFamily: monoFont,
-                    fontSize: 11,
-                    color: colors.red,
-                    letterSpacing: "0.1em",
-                  }}
-                >
-                  {feature.label}
-                </div>
-                <div
-                  style={{
-                    fontFamily: headFont,
-                    fontWeight: 600,
-                    fontSize: 17,
-                    color: colors.text,
-                    marginTop: 10,
-                  }}
-                >
-                  {feature.title}
-                </div>
-                <div
-                  style={{
-                    fontFamily: monoFont,
-                    fontSize: 12,
-                    color: colors.textDim,
-                    marginTop: 8,
-                    lineHeight: 1.55,
-                  }}
-                >
-                  {feature.body}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 8,
-              marginTop: 48,
-              fontFamily: monoFont,
-              fontSize: 11,
-              color: "#4d4d55",
-              letterSpacing: "0.06em",
-            }}
-          >
-            <a
-              href={GITHUB_URL}
-              style={{ color: "#4d4d55", textDecoration: "none" }}
-            >
-              SOURCE ON GITHUB
+    <main className="page">
+      <div className="wrap">
+        <nav className="nav" aria-label="Main">
+          <span className="wordmark">
+            Valorant<span>/</span>MCP
+          </span>
+          <span className="nav-links">
+            <a href={REPO}>GitHub</a>
+            <a className="button" href="/setup">
+              Set up
             </a>
-            <span>POWERED BY HENRIKDEV</span>
+          </span>
+        </nav>
+
+        <section className="hero">
+          <h1>Ask your AI about your last match</h1>
+          <p className="lede">
+            Your VALORANT ranks, matches and round-by-round stats, available to
+            Claude, ChatGPT and any MCP client. Self-hosted, read-only, and only
+            for players who opt in.
+          </p>
+          <div className="actions">
+            <a className="button" href="#setup">
+              Set it up
+            </a>
+            <a className="button ghost" href={REPO}>
+              View source
+            </a>
           </div>
-        </div>
+        </section>
+
+        <section className="section tight" aria-labelledby="tools">
+          <h2 id="tools">What it can answer</h2>
+          <p className="sub">
+            Eight tools covering your profile, match history, per-match
+            breakdowns, trends and head-to-heads with friends.
+          </p>
+          <Readout />
+        </section>
+
+        <section className="section" id="setup" aria-labelledby="setup-title">
+          <h2 id="setup-title">Set it up</h2>
+          <p className="sub">
+            About ten minutes. You need Vercel and Supabase accounts and a free
+            HenrikDev API key.
+          </p>
+          <ol className="steps">
+            <li>
+              <div>
+                <h3>Get a HenrikDev API key</h3>
+                <p>HenrikDev serves the match data. Keys are free.</p>
+              </div>
+              <a className="button ghost" href="https://docs.henrikdev.xyz">
+                HenrikDev docs
+              </a>
+            </li>
+            <li>
+              <div>
+                <h3>Deploy your own copy</h3>
+                <p>
+                  Set <code>HENRIKDEV_API_KEY</code> and an{" "}
+                  <code>OWNER_PASSWORD</code>, add the Supabase integration, and
+                  run the SQL in <code>supabase/migrations</code>.
+                </p>
+              </div>
+              <a className="button" href={DEPLOY}>
+                Deploy to Vercel
+              </a>
+            </li>
+            <li>
+              <div>
+                <h3>Add your Riot ID on your setup page</h3>
+                <p>
+                  Unlock <code>/setup</code> with your password and enter your
+                  Riot ID. You get a connector URL, shown once.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>Add it to your assistant</h3>
+                <p>
+                  Paste the URL as a custom connector in Claude, ChatGPT or
+                  Cursor. Invite friends from <code>/setup</code> to compare
+                  against them.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <footer className="footer">
+          <span>
+            Data from HenrikDev. Not affiliated with or endorsed by Riot Games.
+          </span>
+          <a href={REPO}>MIT licensed on GitHub</a>
+        </footer>
       </div>
-    </div>
+    </main>
   );
 }

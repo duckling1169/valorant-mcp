@@ -44,7 +44,7 @@ export async function signInAction(
   form: FormData,
 ): Promise<ActionState> {
   if (!passwordMatches(String(form.get("password") ?? ""))) {
-    return { error: "Wrong password." };
+    return { error: "That password doesn't match OWNER_PASSWORD." };
   }
   await signIn();
   revalidatePath("/setup");
