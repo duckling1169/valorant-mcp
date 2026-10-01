@@ -2,7 +2,7 @@
 
 ## Commands
 
-- Setup: `Node.js 24.x and pnpm 10.x are required`
+- Setup: Node.js 24 and pnpm 12; `pnpm install --frozen-lockfile`
 - Check: `pnpm verify` (format, typecheck, test)
 - Build: `pnpm build`
 
