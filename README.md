@@ -22,7 +22,7 @@ pnpm dev
 ## Verify
 
 ```sh
-sh scripts/check-agent-docs.sh
+pnpm verify
 ```
 
 ## Normal use

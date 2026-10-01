@@ -3,7 +3,7 @@
 ## Commands
 
 - Setup: `Node.js 24.x and pnpm 10.x are required`
-- Check: `sh scripts/check-agent-docs.sh`
+- Check: `pnpm verify` (format, lint, typecheck, test)
 - Build: `pnpm build`
 
 ## Non-inferable rules

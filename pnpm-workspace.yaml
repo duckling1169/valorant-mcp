@@ -1,0 +1,6 @@
+# Standalone pnpm config (the repo builds alone on Vercel). pnpm 10+ requires an explicit
+# decision for dependencies with install scripts.
+allowBuilds:
+  esbuild: true
+  sharp: false
+  unrs-resolver: true
