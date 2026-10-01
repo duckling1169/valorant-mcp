@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBrowserSupabaseClient } from "@/src/supabase-browser";
-import { requireSession } from "@/src/require-session";
+import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
+import { requireSession } from "@/lib/require-session";
 import type { OAuthAuthorizationDetails } from "@supabase/supabase-js";
 
 type Status = "loading" | "ready" | "error";

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireEnv } from "@/src/require-env";
-import { loadConfig } from "@/src/config";
-import { HenrikClient } from "@/src/henrik-client";
-import { Endpoints } from "@/src/endpoints";
-import { createServiceClient } from "@/src/supabase-service-client";
-import { createInvite } from "@/src/create-invite";
-import { InputError } from "@/src/errors";
+import { requireEnv } from "@/lib/util";
+import { loadConfig } from "@/lib/config";
+import { HenrikClient } from "@/lib/henrik-client";
+import { Endpoints } from "@/lib/endpoints";
+import { createServiceClient } from "@/lib/supabase";
+import { createInvite } from "@/lib/create-invite";
+import { InputError } from "@/lib/errors";
 
 // POST /api/admin/invite { name, tag } — the API-endpoint version of the
 // manual onboarding steps in ARCHITECTURE.md's M4 slice 3 note (resolve Riot

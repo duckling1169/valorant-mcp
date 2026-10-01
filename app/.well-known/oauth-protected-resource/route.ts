@@ -2,7 +2,7 @@ import {
   protectedResourceHandler,
   metadataCorsOptionsRequestHandler,
 } from "mcp-handler";
-import { requireEnv } from "@/src/require-env";
+import { requireEnv } from "@/lib/util";
 
 const supabaseUrl = requireEnv(
   "NEXT_PUBLIC_SUPABASE_URL",

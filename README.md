@@ -40,7 +40,7 @@ curl -X POST https://valorant-mcp.vercel.app/api/admin/invite \
   -d '{"name": "friend", "tag": "1234"}'
 ```
 
-This resolves the Riot ID via HenrikDev, adds them to `consented_profiles`, and mints a one-time invite code. Send the returned `claim_url` to the invitee. They sign in via Supabase email OTP or magic link, and their email becomes their `mcp_users` row. Their MCP client endpoint is `https://valorant-mcp.vercel.app/api/mcp`. Keep `ADMIN_API_KEY` in Vercel's Preview/Production env vars or the owner's local `.env`; never commit or share it.
+This resolves the Riot ID via HenrikDev, adds them to `consented_profiles`, and mints a one-time invite code. Send the returned `claim_url` to the invitee. They sign in via Supabase email OTP or magic link, and their email becomes their `mcp_users` row. Their MCP client endpoint is `https://valorant-mcp.vercel.app/mcp`. Keep `ADMIN_API_KEY` in Vercel's Preview/Production env vars or the owner's local `.env`; never commit or share it.
 
 ### Email OTP setup
 

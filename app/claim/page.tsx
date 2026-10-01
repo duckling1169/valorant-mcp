@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { createBrowserSupabaseClient } from "@/src/supabase-browser";
-import { requireSession } from "@/src/require-session";
+import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
+import { requireSession } from "@/lib/require-session";
 import {
   OpsPanel,
   CheckBadge,

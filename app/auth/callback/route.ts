@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/src/supabase-server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 // Exchanges the magic-link code for a session, then redirects back to `next`
 // (preserved through the sign-in flow — e.g. back to /oauth/consent).

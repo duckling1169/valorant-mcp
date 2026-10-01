@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { createBrowserSupabaseClient } from "@/src/supabase-browser";
+import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
 import {
   OpsPanel,
   CheckBadge,

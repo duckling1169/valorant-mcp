@@ -11,7 +11,7 @@ flowchart TB
   end
 
   subgraph Vercel["valorant-mcp (Vercel)"]
-    MCP["/api/mcp route<br/>(8 tools)"]
+    MCP["/mcp route<br/>(8 tools)"]
     Claim["/claim + /api/claim<br/>(invite redemption)"]
     Admin["/api/admin/invite<br/>(ADMIN_API_KEY)"]
     Login["/login + /oauth/consent<br/>(email sign-in + OAuth approval)"]
@@ -48,13 +48,13 @@ An email not present in `mcp_users` is treated identically to an invalid token (
 
 **Onboarding**: `POST /api/admin/invite` (`ADMIN_API_KEY`) resolves a Riot ID via HenrikDev, upserts `consented_profiles`, and mints a single-use invite code. The invitee opens `/claim?code=...`, signs in with their chosen email, and that email becomes their `mcp_users` row.
 
-**Widened lookup**: any tool accepting `target_name`/`target_tag` resolves that pair against `consented_profiles` and acts on the target's identity instead of the caller's own (`src/target.ts`) — never a live HenrikDev name/tag search. A name/tag that isn't a consented profile is rejected the same way whether it doesn't exist or simply hasn't consented (never distinguishing the two). `compare_match`/`compare_rank` resolve their opponent per-call by name/tag within a shared match instead, and `search_match_history` is inherently self-scoped.
+**Widened lookup**: any tool accepting `target_name`/`target_tag` resolves that pair against `consented_profiles` and acts on the target's identity instead of the caller's own (`lib/target.ts`) — never a live HenrikDev name/tag search. A name/tag that isn't a consented profile is rejected the same way whether it doesn't exist or simply hasn't consented (never distinguishing the two). `compare_match`/`compare_rank` resolve their opponent per-call by name/tag within a shared match instead, and `search_match_history` is inherently self-scoped.
 
 Match-participant data (another player's stats within a match the caller played) is treated as in-scope without separate per-participant consent — incidental to a match the caller already consented to, not a targeted lookup. This is a common-sense reading of HenrikDev's public consent policy, not a confirmed ruling from HenrikDev directly; revisit if that changes.
 
 ## Cache
 
-`cached_matches` is a bounded, write-through/read-through cache (`src/match-cache.ts`), keyed by `(operator_puuid, match_id)` — never `match_id` alone, since a cache hit must only ever be reachable by the identity that wrote it (otherwise a cache hit could skip that request's own participant check). Two independent retention caps are enforced per-identity after every write: 100 rows and 90 days by `cached_at` (fetch time — completed matches are immutable, so retention bounds history volume, not staleness). All cache operations are fail-open: a Postgres error is logged and treated as a miss/no-op, never surfaced as a tool error, since the live HenrikDev path is always a working fallback.
+`cached_matches` is a bounded, write-through/read-through cache (`lib/match-cache.ts`), keyed by `(operator_puuid, match_id)` — never `match_id` alone, since a cache hit must only ever be reachable by the identity that wrote it (otherwise a cache hit could skip that request's own participant check). Two independent retention caps are enforced per-identity after every write: 100 rows and 90 days by `cached_at` (fetch time — completed matches are immutable, so retention bounds history volume, not staleness). All cache operations are fail-open: a Postgres error is logged and treated as a miss/no-op, never surfaced as a tool error, since the live HenrikDev path is always a working fallback.
 
 Two row kinds share the table: "full" rows (`get_match_detail`'s complete response, `has_insight` marking whether per-player insight was included) and "light" rows (`get_recent_matches`/`get_player_stats`' own stat line only, `detail: null`) — a light write never overwrites an existing row of either kind.
 

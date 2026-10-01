@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerSupabaseClient } from "@/src/supabase-server";
-import { createServiceClient } from "@/src/supabase-service-client";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createServiceClient } from "@/lib/supabase";
 
 // POST /api/claim { code } — redeems an mcp_invites code for the calling
 // user's *current* Supabase session, whatever email they signed in with
