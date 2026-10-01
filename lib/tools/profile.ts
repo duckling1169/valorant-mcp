@@ -4,7 +4,7 @@ import type { MmrByPuuidResponse } from "@/lib/henrik-schemas";
 import { guardTool, type Envelope } from "@/lib/envelope";
 
 // get_profile() — no arguments; bound to the one configured operator profile
-// (ARCHITECTURE.md's PUUID-binding decision). Composes account + current/peak
+// (README.md's PUUID-binding decision). Composes account + current/peak
 // rank into one compact factual object. No coaching, no derived commentary.
 
 export interface Profile {

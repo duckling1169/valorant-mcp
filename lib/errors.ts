@@ -1,4 +1,4 @@
-// One Error subclass per kind in ARCHITECTURE.md's Error mapping table. The tool
+// One Error subclass per kind in README.md's Error mapping table. The tool
 // boundary (envelope.ts) maps each of these to its ToolError["kind"]; nothing else
 // in the codebase should construct a ToolError directly.
 

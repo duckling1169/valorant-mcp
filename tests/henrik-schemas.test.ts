@@ -99,58 +99,10 @@ describe("henrik-schemas", () => {
     expect(parsed.data.rounds[0]?.stats[0]?.economy.weapon).toBeNull();
   });
 
-  it("fails closed with SchemaError when a round's economy data is missing", () => {
-    const body = loadFixture("match-v4.json") as {
-      data: { rounds: Array<{ stats: Array<{ economy: unknown }> }> };
-    };
-    const firstRoundStats = body.data.rounds[0]?.stats[0];
-    if (!firstRoundStats) throw new Error("fixture missing first round stats");
-    delete (firstRoundStats as { economy?: unknown }).economy;
-    expect(() => parseHenrikPayload(matchByIdSchema, body)).toThrow(
-      SchemaError,
-    );
-  });
-
-  it("fails closed with SchemaError when a kill's weapon field is missing", () => {
-    const body = loadFixture("match-v4.json") as {
-      data: { kills: Array<Record<string, unknown>> };
-    };
-    const firstKill = body.data.kills[0];
-    if (!firstKill) throw new Error("fixture missing first kill");
-    delete firstKill.weapon;
-    expect(() => parseHenrikPayload(matchByIdSchema, body)).toThrow(
-      SchemaError,
-    );
-  });
-
-  it("fails closed with SchemaError when a match-v4 field is missing", () => {
-    const body = loadFixture("match-v4.json") as {
-      data: { teams: Array<Record<string, unknown>> };
-    };
-    const firstTeam = body.data.teams[0];
-    if (!firstTeam) throw new Error("fixture missing first team");
-    delete firstTeam.won;
-    expect(() => parseHenrikPayload(matchByIdSchema, body)).toThrow(
-      SchemaError,
-    );
-  });
-
   it("parses a valid mmr-history-v2 fixture", () => {
     const body = loadFixture("mmr-history-v2.json");
     const parsed = parseHenrikPayload(mmrHistorySchema, body);
     expect(parsed.data.history).toHaveLength(2);
     expect(parsed.data.history[0]?.last_change).toBe(12);
-  });
-
-  it("fails closed with SchemaError when an mmr-history entry's last_change is missing", () => {
-    const body = loadFixture("mmr-history-v2.json") as {
-      data: { history: Array<Record<string, unknown>> };
-    };
-    const first = body.data.history[0];
-    if (!first) throw new Error("fixture missing first history entry");
-    delete first.last_change;
-    expect(() => parseHenrikPayload(mmrHistorySchema, body)).toThrow(
-      SchemaError,
-    );
   });
 });

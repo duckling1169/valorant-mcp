@@ -5,7 +5,7 @@ import type { OperatorIdentity } from "@/lib/identity";
 
 // search_match_history({ map?, agent?, act?, rank?, date_from?, date_to?, limit? })
 // — cache-only query over matches the operator has already individually
-// detailed via get_match_detail (ARCHITECTURE.md, 2026-07-28 "bounded cache").
+// detailed via get_match_detail (README.md, 2026-07-28 "bounded cache").
 // No live HenrikDev fallback: an empty result means nothing cached matches the
 // filters, not an error — a cache populated only opportunistically by
 // get_match_detail calls is expected to have gaps.

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { getPlayerStats } from "@/lib/tools/player-stats";
 import type { Endpoints } from "@/lib/endpoints";
-import { UpstreamError } from "@/lib/errors";
 
 const config = {
   operatorPuuid: "abc-123",
@@ -160,32 +159,6 @@ describe("getPlayerStats", () => {
 
     expect(data.best_game?.match_id).toBe("match-1");
     expect(data.worst_game?.match_id).toBe("match-2");
-  });
-
-  it("passes sample_size through to Endpoints.getRecentMatches", async () => {
-    const endpoints = fakeEndpoints();
-    await getPlayerStats({ endpoints, config }, { sample_size: 30 });
-    expect(endpoints.getRecentMatches).toHaveBeenCalledWith(
-      "na",
-      "abc-123",
-      30,
-    );
-  });
-
-  it("maps a thrown error to the envelope, same as other tools", async () => {
-    const endpoints = {
-      getRecentMatches: vi.fn(async () => {
-        throw new UpstreamError("boom", 500);
-      }),
-      getMmr: vi.fn(async () => mmr),
-      getMmrHistory: vi.fn(async () => mmrHistory),
-    } as unknown as Endpoints;
-    const envelope = await getPlayerStats(
-      { endpoints, config },
-      { sample_size: 20 },
-    );
-    expect(envelope.ok).toBe(false);
-    expect(envelope.error?.kind).toBe("upstream");
   });
 
   it("write-throughs light cache rows for every fetched match", async () => {

@@ -5,7 +5,7 @@ import {
   InputError,
 } from "@/lib/errors";
 
-// The one envelope every tool returns (ARCHITECTURE.md's Error mapping section).
+// The one envelope every tool returns (README.md's Error mapping section).
 // Internal code throws; only the tool boundary (guardTool/toToolError) converts a
 // throw into this envelope. Never leak a raw exception, a HenrikDev response body,
 // or a player value to the client.

@@ -22,7 +22,7 @@ function toMmrPlatform(raw: string): Platform {
 // "match-participant data incidental to a shared match" scope, so it's gated
 // even more tightly: the opponent must be found via a specific match the
 // operator provides (same lookup as compare_match, never a fresh Riot-ID
-// search) — see ARCHITECTURE.md's provisional resolution, 2026-07-28.
+// search) — see README.md's provisional resolution, 2026-07-28.
 
 export interface RankCompareEntry {
   tier: { id: number; name: string };

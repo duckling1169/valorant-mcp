@@ -11,9 +11,9 @@ import { cacheFailOpen } from "@/lib/util";
 // get_profile/get_recent_matches (inherently scoped to the operator), this tool
 // takes an arbitrary match_id, so it's the first place we must actively enforce
 // the M0 consent-scope decision in code: match-participant data is in-scope only
-// when the operator was a player in that match (ARCHITECTURE.md, 2026-07-28).
+// when the operator was a player in that match (README.md, 2026-07-28).
 //
-// M3's first cache slice (ARCHITECTURE.md, 2026-07-28 "bounded cache"): every
+// M3's first cache slice (README.md, 2026-07-28 "bounded cache"): every
 // successful call here also write-throughs a row to MatchCache so
 // search_match_history can find it later. The cache write is best-effort —
 // fail-open, logged and swallowed, never surfaced as a tool error — since

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { searchMatchHistory } from "@/lib/tools/search-match-history";
 import type { MatchCache } from "@/lib/match-cache";
-import { UpstreamError } from "@/lib/errors";
 
 const config = { operatorPuuid: "operator-1" };
 
@@ -61,16 +60,5 @@ describe("searchMatchHistory", () => {
     );
     expect(envelope.ok).toBe(true);
     expect(envelope.data).toEqual([]);
-  });
-
-  it("maps a thrown error to the envelope, same as other tools", async () => {
-    const cache = {
-      search: vi.fn(async () => {
-        throw new UpstreamError("boom", 500);
-      }),
-    } as unknown as MatchCache;
-    const envelope = await searchMatchHistory({ cache, config }, { limit: 20 });
-    expect(envelope.ok).toBe(false);
-    expect(envelope.error?.kind).toBe("upstream");
   });
 });

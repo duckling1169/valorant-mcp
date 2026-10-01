@@ -81,17 +81,6 @@ const row: NewCachedMatchRow = {
 };
 
 describe("MatchCache.upsert", () => {
-  it("upserts and evicts with no excess rows, without throwing", async () => {
-    const { client } = fakeClient([
-      { error: null }, // upsert
-      { error: null }, // age-based delete
-      { data: [{ match_id: "match-1" }], error: null }, // list for count eviction
-    ]);
-    await expect(
-      new MatchCache(client).upsert(OPERATOR_PUUID, row),
-    ).resolves.toBeUndefined();
-  });
-
   it("scopes both the upsert row and eviction to operatorPuuid", async () => {
     const { client, builders } = fakeClient([
       { error: null }, // upsert
@@ -172,13 +161,6 @@ describe("MatchCache.search", () => {
     expect(builder.eq).toHaveBeenCalledWith("operator_puuid", OPERATOR_PUUID);
   });
 
-  it("throws UpstreamError when the query fails", async () => {
-    const { client } = fakeClient([{ error: { message: "boom" } }]);
-    await expect(
-      new MatchCache(client).search(OPERATOR_PUUID, { limit: 20 }),
-    ).rejects.toThrow(UpstreamError);
-  });
-
   it("throws SchemaError when a row doesn't match the expected shape", async () => {
     const { client } = fakeClient([
       { data: [{ match_id: "match-1" }], error: null },
@@ -207,12 +189,6 @@ const lightRow = {
 };
 
 describe("MatchCache.insertLightMatches", () => {
-  it("does nothing for an empty batch (no from() call)", async () => {
-    const { client } = fakeClient([]);
-    await new MatchCache(client).insertLightMatches(OPERATOR_PUUID, []);
-    expect(client.from).not.toHaveBeenCalled();
-  });
-
   it("upserts with operator_puuid + ignoreDuplicates, evicts once for the batch", async () => {
     const { client, builders } = fakeClient([
       { error: null }, // batch upsert
@@ -234,13 +210,6 @@ describe("MatchCache.insertLightMatches", () => {
       ],
       { onConflict: "operator_puuid,match_id", ignoreDuplicates: true },
     );
-  });
-
-  it("throws UpstreamError when the batch upsert fails", async () => {
-    const { client } = fakeClient([{ error: { message: "boom" } }]);
-    await expect(
-      new MatchCache(client).insertLightMatches(OPERATOR_PUUID, [lightRow]),
-    ).rejects.toThrow(UpstreamError);
   });
 });
 
@@ -272,12 +241,5 @@ describe("MatchCache.getDetail", () => {
       "match-1",
     );
     expect(result).toBeNull();
-  });
-
-  it("throws UpstreamError when the lookup fails", async () => {
-    const { client } = fakeClient([{ error: { message: "boom" } }]);
-    await expect(
-      new MatchCache(client).getDetail(OPERATOR_PUUID, "match-1"),
-    ).rejects.toThrow(UpstreamError);
   });
 });

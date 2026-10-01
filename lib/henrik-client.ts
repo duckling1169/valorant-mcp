@@ -25,10 +25,10 @@ const DEFAULT_BASE = "https://api.henrikdev.xyz";
  *   layer up (endpoints.ts), never here.
  * - Fail-fast: if the local budget can't afford the call, throw before touching
  *   the network. A server 429 is treated as exhaustion too — reconcile to 0 and
- *   throw, never retry (ARCHITECTURE.md: no auto-retry in M1).
+ *   throw, never retry (README.md: no auto-retry in M1).
  * - Reconcile the budget from `x-ratelimit-remaining` on every response.
  * - Never include the response body in a thrown error's message — HenrikDev
- *   payloads may carry player data, and ARCHITECTURE.md's logging decision bans
+ *   payloads may carry player data, and README.md's logging decision bans
  *   logging response bodies.
  */
 export class HenrikClient {

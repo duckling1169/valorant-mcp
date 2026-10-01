@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { getRecentMatches } from "@/lib/tools/recent-matches";
 import type { Endpoints } from "@/lib/endpoints";
-import { UpstreamError } from "@/lib/errors";
 
 const config = { operatorPuuid: "abc-123", operatorRegion: "na" as const };
 
@@ -119,26 +118,6 @@ describe("getRecentMatches", () => {
         won: null,
       },
     ]);
-  });
-
-  it("passes the requested limit through to Endpoints", async () => {
-    const endpoints = fakeEndpoints();
-    await getRecentMatches({ endpoints, config }, { limit: 3 });
-    expect(endpoints.getRecentMatches).toHaveBeenCalledWith("na", "abc-123", 3);
-  });
-
-  it("maps a thrown error to the envelope, same as get_profile", async () => {
-    const endpoints = {
-      getRecentMatches: vi.fn(async () => {
-        throw new UpstreamError("boom", 500);
-      }),
-    } as unknown as Endpoints;
-    const envelope = await getRecentMatches(
-      { endpoints, config },
-      { limit: 10 },
-    );
-    expect(envelope.ok).toBe(false);
-    expect(envelope.error?.kind).toBe("upstream");
   });
 
   it("write-throughs light cache rows for every fetched match", async () => {

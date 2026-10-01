@@ -2,7 +2,7 @@ import { z } from "zod";
 import { SchemaError } from "@/lib/errors";
 
 // Validate only the fields get_profile actually consumes from each HenrikDev
-// payload (ARCHITECTURE.md: "validate HenrikDev payloads at the boundary and fail
+// payload (README.md: "validate HenrikDev payloads at the boundary and fail
 // closed on schema drift"). Unknown extra fields are ignored (forward-compatible);
 // missing/wrong-typed fields we depend on fail closed.
 
@@ -236,7 +236,7 @@ export type MatchRound = z.infer<typeof matchRoundSchema>;
 export type MatchKill = z.infer<typeof matchKillSchema>;
 
 /** Parse `body` against `schema`; on failure, throw SchemaError naming the field
- * path only — never the offending value (ARCHITECTURE.md's error-mapping rule). */
+ * path only — never the offending value (README.md's error-mapping rule). */
 export function parseHenrikPayload<T>(schema: z.ZodType<T>, body: unknown): T {
   const result = schema.safeParse(body);
   if (result.success) return result.data;

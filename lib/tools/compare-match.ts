@@ -8,7 +8,7 @@ import type { MatchByIdResponse } from "@/lib/henrik-schemas";
 // compare_match({ match_id, opponent_name, opponent_tag }) — single-match
 // head-to-head between the operator and a named opponent, both of whom must
 // have played match_id (found via name/tag as already surfaced by
-// get_match_detail, never a fresh Riot-ID lookup — ARCHITECTURE.md, 2026-07-28).
+// get_match_detail, never a fresh Riot-ID lookup — README.md, 2026-07-28).
 // Essentially free: Slice 2's getMatchInsight already computes full per-player
 // insight for every participant in one call; this just picks out two.
 

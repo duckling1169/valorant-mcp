@@ -6,7 +6,7 @@ import { safeDivide } from "@/lib/util";
 // token cost is real, ~3.7x the compact response). Every threshold/algorithm here
 // was verified against the operator's real match history during M2 slice 2's
 // grilling session, not just assumed from legacy or HenrikDev's (twice-wrong)
-// OpenAPI spec — see ARCHITECTURE.md for the dated decisions.
+// OpenAPI spec — see README.md for the dated decisions.
 
 type Match = MatchByIdResponse["data"];
 
@@ -29,7 +29,7 @@ export interface WeaponAccuracy {
   weapon: string;
   headshot_pct: number;
   /** Inferred from the round's buy-phase loadout, not a per-shot weapon tag —
-   * HenrikDev's damage_events carry no weapon field (see ARCHITECTURE.md). */
+   * HenrikDev's damage_events carry no weapon field (see README.md). */
   approximate: true;
 }
 
@@ -233,7 +233,7 @@ function computeWeaponAccuracy(match: Match, puuid: string): WeaponAccuracy[] {
 // Verified live against 10 real matches (Red always attacks first half) and one
 // real 30-round overtime match (OT alternates every round, starting with
 // whichever team defended in the second half attacking first at round 24) —
-// ARCHITECTURE.md records both findings. No approximation needed: side is a
+// README.md records both findings. No approximation needed: side is a
 // deterministic function of team_id + round parity.
 function attackingTeam(roundId: number): "Red" | "Blue" {
   if (roundId < 12) return "Red";
@@ -360,7 +360,7 @@ function computePlantsDefuses(
 // lone survivor, not just for their team to win the round — a team can win via
 // spike detonation after its last player dies (post-plant), which isn't a
 // personal clutch win (a real bug caught and fixed during verification against
-// real matches; see ARCHITECTURE.md).
+// real matches; see README.md).
 function computeClutches(match: Match, puuid: string): ClutchStats {
   const team = teamOf(match, puuid);
   const by: Record<"1v1" | "1v2" | "1v3+", number> = {

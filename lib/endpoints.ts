@@ -34,10 +34,8 @@ export class Endpoints {
     return parseHenrikPayload(accountByPuuidSchema, res.data).data;
   }
 
-  /** Riot ID (name#tag) -> account, the opposite direction of
-   * getAccountByPuuid — used only for admin onboarding (lib/create-invite.ts),
-   * never exposed as an MCP tool (ARCHITECTURE.md's "never a fresh Riot-ID
-   * lookup" rule is about *player-facing* tools, not admin provisioning). */
+  /** Riot ID (name#tag) -> account. Used only when the owner adds a profile
+   * or invites a friend on /setup (lib/connections.ts); never an MCP tool. */
   async getAccountByName(
     name: string,
     tag: string,

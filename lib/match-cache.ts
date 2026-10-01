@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { SchemaError, UpstreamError } from "@/lib/errors";
 
-// Bounded write-through cache for get_match_detail (ARCHITECTURE.md, 2026-07-28
+// Bounded write-through cache for get_match_detail (README.md, 2026-07-28
 // "bounded cache" decision). This first M3 slice: only get_match_detail writes
 // (search_match_history only reads); retention is two independent caps (100
 // rows, 90 days by cached_at) enforced synchronously after every write, not by
@@ -24,7 +24,7 @@ import { SchemaError, UpstreamError } from "@/lib/errors";
 // operator can only ever find rows that operator itself wrote. This is what
 // makes the read-through in match-detail.ts safe for a second real user:
 // without it, a cache hit would skip that request's own participant check
-// (ARCHITECTURE.md's M4 slice 2 decision). Retention (100 rows / 90 days) is
+// (README.md's M4 slice 2 decision). Retention (100 rows / 90 days) is
 // also enforced per-operator now, not cache-wide — one operator's usage must
 // never evict another's rows.
 
@@ -117,7 +117,7 @@ export class MatchCache {
 
   /** Upsert one row, then enforce retention. Throws on any Postgres error —
    * callers that want write-through to be best-effort (get_match_detail) must
-   * catch and swallow, per ARCHITECTURE.md's fail-open cache-write decision. */
+   * catch and swallow, per README.md's fail-open cache-write decision. */
   async upsert(operatorPuuid: string, row: NewCachedMatchRow): Promise<void> {
     const { error } = await this.client.from(TABLE).upsert({
       ...row,
@@ -132,7 +132,7 @@ export class MatchCache {
    * operatorPuuid (the composite primary key — see the slice-2 note above).
    * Returns null on no row; throws on any Postgres error — callers that want
    * read-through to be best-effort (get_match_detail) must catch and treat as
-   * a miss, per ARCHITECTURE.md's fail-open cache decision. */
+   * a miss, per README.md's fail-open cache decision. */
   async getDetail(
     operatorPuuid: string,
     matchId: string,
@@ -152,7 +152,7 @@ export class MatchCache {
 
   /** Batch-insert light rows (from stored-matches) for one operator, skipping
    * any (operatorPuuid, match_id) that already has a row — light data never
-   * overwrites, light or full (ARCHITECTURE.md's slice-3 decision). One
+   * overwrites, light or full (README.md's slice-3 decision). One
    * eviction pass for the whole batch, not one per row. Throws on any
    * Postgres error — callers (get_recent_matches/get_player_stats) must catch
    * and swallow, same fail-open contract as upsert(). */

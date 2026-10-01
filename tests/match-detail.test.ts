@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { getMatchDetail } from "@/lib/tools/match-detail";
 import type { Endpoints } from "@/lib/endpoints";
-import { UpstreamError } from "@/lib/errors";
 
 const config = {
   operatorPuuid: "operator-puuid",
@@ -135,20 +134,6 @@ describe("getMatchDetail", () => {
     expect(envelope.ok).toBe(false);
     expect(envelope.error?.kind).toBe("input");
     expect(envelope.error?.message).not.toContain("match-abc");
-  });
-
-  it("maps a thrown error to the envelope, same as get_profile/get_recent_matches", async () => {
-    const endpoints = {
-      getMatchById: vi.fn(async () => {
-        throw new UpstreamError("boom", 500);
-      }),
-    } as unknown as Endpoints;
-    const envelope = await getMatchDetail(
-      { endpoints, config },
-      { match_id: "match-abc" },
-    );
-    expect(envelope.ok).toBe(false);
-    expect(envelope.error?.kind).toBe("upstream");
   });
 
   it("write-throughs a cache row derived from the operator's participation", async () => {

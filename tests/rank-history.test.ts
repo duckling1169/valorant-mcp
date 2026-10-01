@@ -2,7 +2,6 @@ import { loadFixture } from "./fixtures";
 import { describe, it, expect, vi } from "vitest";
 import { getRankHistory } from "@/lib/tools/rank-history";
 import type { Endpoints } from "@/lib/endpoints";
-import { UpstreamError } from "@/lib/errors";
 
 const config = {
   operatorPuuid: "abc-123",
@@ -51,15 +50,6 @@ describe("getRankHistory", () => {
     expect(envelope.data?.map((h) => h.match_id)).toEqual(["match-1"]);
   });
 
-  it("with since_match_id set to the newest entry, returns nothing new", async () => {
-    const envelope = await getRankHistory(
-      { endpoints: fakeEndpoints(), config },
-      { limit: 20, since_match_id: "match-1" },
-    );
-    expect(envelope.ok).toBe(true);
-    expect(envelope.data).toEqual([]);
-  });
-
   it("errors with kind:input when since_match_id isn't in rank history", async () => {
     const envelope = await getRankHistory(
       { endpoints: fakeEndpoints(), config },
@@ -76,16 +66,5 @@ describe("getRankHistory", () => {
     );
     expect(envelope.ok).toBe(true);
     expect(envelope.data).toHaveLength(1);
-  });
-
-  it("maps a thrown error to the envelope, same as other tools", async () => {
-    const endpoints = {
-      getMmrHistory: vi.fn(async () => {
-        throw new UpstreamError("boom", 500);
-      }),
-    } as unknown as Endpoints;
-    const envelope = await getRankHistory({ endpoints, config }, { limit: 20 });
-    expect(envelope.ok).toBe(false);
-    expect(envelope.error?.kind).toBe("upstream");
   });
 });

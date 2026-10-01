@@ -1,299 +1,63 @@
-"use client";
+import type { CSSProperties } from "react";
+import { colors, headFont } from "@/app/_components/theme";
+import { getInvite } from "@/lib/connections";
+import { getServices } from "@/lib/services";
+import { ClaimForm } from "./form";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
-import { requireSession } from "@/lib/require-session";
-import {
-  OpsPanel,
-  CheckBadge,
-  AlertBadge,
-  Spinner,
-  colors,
-  headFont,
-  monoFont,
-  textLinkStyle,
-} from "@/app/_components/OpsPanel";
+export const dynamic = "force-dynamic";
 
-type Status = "working" | "done" | "notfound" | "error";
+const page: CSSProperties = {
+  minHeight: "100vh",
+  background: colors.bg,
+  color: colors.text,
+  padding: "40px 16px",
+};
+const column: CSSProperties = {
+  maxWidth: 560,
+  margin: "0 auto",
+  display: "flex",
+  flexDirection: "column",
+  gap: 16,
+};
 
-export default function ClaimPage() {
-  const [status, setStatus] = useState<Status>("working");
-  const [message, setMessage] = useState("");
-  const [handle, setHandle] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function run() {
-      const code = new URLSearchParams(window.location.search).get("code");
-      if (!code) {
-        setStatus("notfound");
-        return;
-      }
-
-      const supabase = createBrowserSupabaseClient();
-      const session = await requireSession(
-        supabase,
-        `/claim?code=${encodeURIComponent(code)}`,
-      );
-      if (!session) return;
-
-      const res = await fetch("/api/claim", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const body: { error?: string; name?: string; tag?: string } =
-        await res.json();
-      if (!res.ok) {
-        setStatus("error");
-        setMessage(body.error ?? "Something went wrong.");
-        return;
-      }
-      if (body.name && body.tag) setHandle(`${body.name}#${body.tag}`);
-      setStatus("done");
-    }
-    void run();
-  }, []);
+export default async function ClaimPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string }>;
+}) {
+  const { code } = await searchParams;
+  const invite = code ? await getInvite(getServices().db, code) : null;
 
   return (
-    <OpsPanel
-      eyebrow="/claim?code=...: operator setting up their MCP client"
-      badge="OPERATOR SETUP"
-    >
-      {status === "working" && (
-        <div
-          style={{
-            margin: "auto 0",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 18,
-          }}
-        >
-          <Spinner />
-          <div
-            style={{
-              fontFamily: headFont,
-              fontWeight: 700,
-              fontSize: "clamp(20px, 3vw, 32px)",
-              color: colors.heading,
-            }}
-          >
-            VERIFYING INVITE
-          </div>
-          <div
-            style={{
-              fontFamily: monoFont,
-              fontSize: 12,
-              color: colors.textDim,
-              letterSpacing: "0.02em",
-            }}
-          >
-            {"// resolving code against roster"}
-          </div>
-        </div>
-      )}
-
-      {status === "done" && (
-        <div
-          style={{
-            margin: "auto 0",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 14,
-          }}
-        >
-          <CheckBadge />
-          <div
-            style={{
-              fontFamily: headFont,
-              fontWeight: 700,
-              fontSize: "clamp(24px, 3.4vw, 38px)",
-              color: colors.heading,
-              lineHeight: 1.15,
-            }}
-          >
-            ROSTER
-            <br />
-            CONFIRMED
-          </div>
-          {handle && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontFamily: monoFont,
-                fontSize: 12,
-                color: "#c4c4ca",
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  background: colors.green,
-                  borderRadius: "50%",
-                }}
-              />
-              <span>
-                invite matched{" "}
-                <span style={{ color: colors.text }}>{handle}</span>
-              </span>
-            </div>
-          )}
-          <div
-            style={{
-              fontFamily: monoFont,
-              fontSize: 12,
-              color: colors.textDim,
-              lineHeight: 1.6,
-            }}
-          >
-            You&apos;re cleared. Point your MCP client at the server with the
-            same credentials, no further setup.
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
-              gap: 1,
-              background: colors.border,
-              border: `1px solid ${colors.border}`,
-              width: "100%",
-            }}
-          >
-            {[
-              {
-                label: "PROFILE + RANK",
-                body: "current rank, accuracy, agent pool",
-              },
-              {
-                label: "MATCH HISTORY",
-                body: "recent games, per-match detail",
-              },
-              {
-                label: "COMPARE",
-                body: "head-to-head against a teammate",
-              },
-            ].map((tile) => (
-              <div
-                key={tile.label}
-                style={{ background: "#17171c", padding: "12px 14px" }}
-              >
-                <div
-                  style={{
-                    fontFamily: monoFont,
-                    fontSize: 10,
-                    color: colors.red,
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {tile.label}
-                </div>
-                <div
-                  style={{
-                    fontFamily: monoFont,
-                    fontSize: 10.5,
-                    color: colors.textDim,
-                    marginTop: 4,
-                  }}
-                >
-                  {tile.body}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              fontFamily: monoFont,
-              fontSize: 10,
-              color: "#4d4d55",
-              letterSpacing: "0.06em",
-            }}
-          >
-            8 TOOLS TOTAL, ARMED AND READY
-          </div>
-        </div>
-      )}
-
-      {status === "notfound" && (
-        <div
-          style={{
-            margin: "auto 0",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              fontFamily: headFont,
-              fontWeight: 700,
-              fontSize: "clamp(56px, 8vw, 96px)",
-              color: "#26262e",
-              lineHeight: 1,
-            }}
-          >
-            404
-          </div>
-          <div
-            style={{
-              fontFamily: monoFont,
-              fontSize: 12,
-              color: colors.textDim,
-            }}
-          >
-            Missing invite code.
-          </div>
-          <Link href="/" style={{ ...textLinkStyle, marginTop: 6 }}>
-            BACK TO HOME
-          </Link>
-        </div>
-      )}
-
-      {status === "error" && (
-        <div
-          style={{
-            margin: "auto 0",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 14,
-          }}
-        >
-          <AlertBadge />
-          <div
-            style={{
-              fontFamily: headFont,
-              fontWeight: 700,
-              fontSize: "clamp(24px, 3.4vw, 38px)",
-              color: colors.heading,
-              lineHeight: 1.15,
-            }}
-          >
-            CLAIM
-            <br />
-            FAILED
-          </div>
-          <div
-            style={{
-              fontFamily: monoFont,
-              fontSize: 12,
-              color: colors.textDim,
-              lineHeight: 1.6,
-            }}
-          >
-            {message}
-          </div>
-          <Link href="/" style={{ ...textLinkStyle, marginTop: 6 }}>
-            BACK TO HOME
-          </Link>
-        </div>
-      )}
-    </OpsPanel>
+    <main style={page}>
+      <div style={column}>
+        <h1 style={{ fontFamily: headFont, fontSize: 32, margin: 0 }}>
+          Connect your VALORANT stats
+        </h1>
+        {invite && code ? (
+          <>
+            <p>
+              You&apos;ve been invited to connect{" "}
+              <strong>
+                {invite.name}#{invite.tag}
+              </strong>{" "}
+              to an AI assistant through this server.
+            </p>
+            <p style={{ color: colors.textDim }}>
+              If you accept, you get your own connector URL, and other people on
+              this server can look up your public VALORANT profile and match
+              history and compare against you. Nothing is shared until you
+              accept. The server owner can remove you at any time.
+            </p>
+            <ClaimForm code={code} />
+          </>
+        ) : (
+          <p style={{ color: colors.textDim }}>
+            This invite link is invalid or has already been used. Ask for a new
+            one.
+          </p>
+        )}
+      </div>
+    </main>
   );
 }

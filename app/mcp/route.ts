@@ -1,9 +1,5 @@
 import { z } from "zod";
-import { createMcpHandler, withMcpAuth } from "mcp-handler";
-import type { AuthInfo } from "@modelcontextprotocol/server";
-import { loadConfig } from "@/lib/config";
-import { HenrikClient } from "@/lib/henrik-client";
-import { Endpoints } from "@/lib/endpoints";
+import { createMcpHandler } from "mcp-handler";
 import { getProfile } from "@/lib/tools/profile";
 import { getRecentMatches } from "@/lib/tools/recent-matches";
 import { getMatchDetail } from "@/lib/tools/match-detail";
@@ -11,22 +7,15 @@ import { getPlayerStats } from "@/lib/tools/player-stats";
 import { compareMatch } from "@/lib/tools/compare-match";
 import { compareRank } from "@/lib/tools/compare-rank";
 import { getRankHistory } from "@/lib/tools/rank-history";
-import { createServiceClient } from "@/lib/supabase";
-import { MatchCache } from "@/lib/match-cache";
 import { searchMatchHistory } from "@/lib/tools/search-match-history";
-import { verifyToken } from "@/lib/verify-token";
-import { resolveIdentity } from "@/lib/identity";
+import { identityForKey } from "@/lib/connections";
+import { getServices } from "@/lib/services";
+import { currentIdentity, requestIdentity } from "@/lib/identity";
 import { resolveTarget } from "@/lib/target";
 
-// M4: the operator identity is no longer bound at module scope — it's resolved
-// per-request from the caller's AuthInfo (verify-token.ts, identity.ts), so the
-// same deployed server can serve any consented mcp_users row. Only the
-// HenrikDev client and cache client are shared across all requests/users.
-const config = loadConfig(process.env);
-const client = new HenrikClient({ apiKey: config.henrikApiKey });
-const endpoints = new Endpoints(client);
-const serviceClient = createServiceClient();
-const cache = new MatchCache(serviceClient);
+// Each request acts as the consented profile its connection key belongs to
+// (lib/connections.ts). Only the HenrikDev client and cache are shared.
+const { endpoints, db: serviceClient, cache } = getServices();
 
 // M4 slice 4: any tool taking this input may act on a consented profile
 // (List 2) instead of the caller's own identity — resolved only against
@@ -38,7 +27,7 @@ const targetInputSchema = {
 
 /** Every registerTool callback wraps its envelope the same way — MCP's
  * CallToolResult content array, one text block of the JSON-stringified
- * envelope (ARCHITECTURE.md: "return stable structured JSON from MCP tools"). */
+ * envelope (README.md: "return stable structured JSON from MCP tools"). */
 function toToolResult(envelope: unknown): {
   content: [{ type: "text"; text: string }];
 } {
@@ -47,12 +36,11 @@ function toToolResult(envelope: unknown): {
 
 /** Every target-widened tool resolves the caller's own identity, then swaps
  * in a consented target's identity if target_name/target_tag were given. */
-async function resolveEffectiveIdentity(
-  extra: { http?: { authInfo?: AuthInfo } },
-  target: { target_name?: string; target_tag?: string },
-) {
-  const self = resolveIdentity(extra.http?.authInfo);
-  return resolveTarget(serviceClient, self, target);
+async function resolveEffectiveIdentity(target: {
+  target_name?: string;
+  target_tag?: string;
+}) {
+  return resolveTarget(serviceClient, currentIdentity(), target);
 }
 
 const mcpHandler = createMcpHandler(
@@ -64,8 +52,8 @@ const mcpHandler = createMcpHandler(
           "The operator's own VALORANT account profile and current/peak competitive rank. Pass target_name/target_tag together to look up a consented friend's profile instead — rejected if that name/tag hasn't consented.",
         inputSchema: z.object(targetInputSchema),
       },
-      async ({ target_name, target_tag }, extra) => {
-        const identity = await resolveEffectiveIdentity(extra, {
+      async ({ target_name, target_tag }) => {
+        const identity = await resolveEffectiveIdentity({
           target_name,
           target_tag,
         });
@@ -84,8 +72,8 @@ const mcpHandler = createMcpHandler(
           ...targetInputSchema,
         }),
       },
-      async ({ limit, target_name, target_tag }, extra) => {
-        const identity = await resolveEffectiveIdentity(extra, {
+      async ({ limit, target_name, target_tag }) => {
+        const identity = await resolveEffectiveIdentity({
           target_name,
           target_tag,
         });
@@ -108,8 +96,8 @@ const mcpHandler = createMcpHandler(
           ...targetInputSchema,
         }),
       },
-      async ({ match_id, include_insight, target_name, target_tag }, extra) => {
-        const identity = await resolveEffectiveIdentity(extra, {
+      async ({ match_id, include_insight, target_name, target_tag }) => {
+        const identity = await resolveEffectiveIdentity({
           target_name,
           target_tag,
         });
@@ -131,8 +119,8 @@ const mcpHandler = createMcpHandler(
           ...targetInputSchema,
         }),
       },
-      async ({ sample_size, target_name, target_tag }, extra) => {
-        const identity = await resolveEffectiveIdentity(extra, {
+      async ({ sample_size, target_name, target_tag }) => {
+        const identity = await resolveEffectiveIdentity({
           target_name,
           target_tag,
         });
@@ -157,8 +145,8 @@ const mcpHandler = createMcpHandler(
           "Head-to-head stats for the operator vs. a named opponent (name/tag as shown by get_match_detail) within one shared match. Rejected if either player wasn't a participant in match_id.",
         inputSchema: z.object(compareInputSchema),
       },
-      async ({ match_id, opponent_name, opponent_tag }, extra) => {
-        const identity = resolveIdentity(extra.http?.authInfo);
+      async ({ match_id, opponent_name, opponent_tag }) => {
+        const identity = currentIdentity();
         const envelope = await compareMatch(
           { endpoints, config: identity },
           { match_id, opponent_name, opponent_tag },
@@ -174,8 +162,8 @@ const mcpHandler = createMcpHandler(
           "The operator's current rank/RR vs. a named opponent's current rank/RR (live, not their rank at match time). The opponent must be found via a shared match (name/tag as shown by get_match_detail) — never a fresh lookup. Rejected if either player wasn't a participant in match_id.",
         inputSchema: z.object(compareInputSchema),
       },
-      async ({ match_id, opponent_name, opponent_tag }, extra) => {
-        const identity = resolveIdentity(extra.http?.authInfo);
+      async ({ match_id, opponent_name, opponent_tag }) => {
+        const identity = currentIdentity();
         const envelope = await compareRank(
           { endpoints, config: identity },
           { match_id, opponent_name, opponent_tag },
@@ -200,8 +188,8 @@ const mcpHandler = createMcpHandler(
           ...targetInputSchema,
         }),
       },
-      async ({ limit, since_match_id, target_name, target_tag }, extra) => {
-        const identity = await resolveEffectiveIdentity(extra, {
+      async ({ limit, since_match_id, target_name, target_tag }) => {
+        const identity = await resolveEffectiveIdentity({
           target_name,
           target_tag,
         });
@@ -231,8 +219,8 @@ const mcpHandler = createMcpHandler(
           limit: z.number().int().min(1).max(100).optional(),
         }),
       },
-      async ({ map, agent, act, rank, date_from, date_to, limit }, extra) => {
-        const identity = resolveIdentity(extra.http?.authInfo);
+      async ({ map, agent, act, rank, date_from, date_to, limit }) => {
+        const identity = currentIdentity();
         const envelope = await searchMatchHistory(
           { cache, config: identity },
           { map, agent, act, rank, date_from, date_to, limit: limit ?? 20 },
@@ -244,14 +232,37 @@ const mcpHandler = createMcpHandler(
   { serverInfo: { name: "valorant-mcp", version: "0.0.0" } },
 );
 
-// Every request must carry a bearer token issued by Supabase's OAuth 2.1 server
-// and verified against its JWKS (lib/verify-token.ts). Unauthenticated requests
-// get a 401 pointing at the protected-resource metadata below, which is how an
-// MCP client (Claude) discovers Supabase as the authorization server.
-const handler = withMcpAuth(mcpHandler, verifyToken, {
-  required: true,
-  resourceMetadataPath: "/.well-known/oauth-protected-resource",
-});
+function extractKey(req: Request): string | null {
+  const header = req.headers.get("authorization") ?? "";
+  if (header.startsWith("Bearer ") && header.slice(7).trim()) {
+    return header.slice(7).trim();
+  }
+  return new URL(req.url).searchParams.get("key")?.trim() || null;
+}
+
+// A JSON body plus a plain Bearer challenge (no resource_metadata), so clients
+// don't mistake this for an invitation to attempt OAuth.
+function unauthorized(): Response {
+  return Response.json(
+    {
+      error:
+        "Missing or invalid connection key. Ask the owner for a connector URL.",
+    },
+    {
+      status: 401,
+      headers: { "WWW-Authenticate": 'Bearer realm="valorant-mcp"' },
+    },
+  );
+}
+
+async function handler(req: Request): Promise<Response> {
+  const key = extractKey(req);
+  const identity = key
+    ? await identityForKey(serviceClient, key).catch(() => null)
+    : null;
+  if (!identity) return unauthorized();
+  return requestIdentity.run(identity, () => mcpHandler(req));
+}
 
 export const maxDuration = 60;
 

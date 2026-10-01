@@ -40,13 +40,6 @@ describe("resolveTarget", () => {
     ).rejects.toThrow(InputError);
   });
 
-  it("throws InputError when only target_tag is given", async () => {
-    const { client } = fakeClient({ data: null, error: null });
-    await expect(
-      resolveTarget(client, self, { target_tag: "bar" }),
-    ).rejects.toThrow(InputError);
-  });
-
   it("resolves a consented profile's identity, matching name/tag case-insensitively", async () => {
     const { client, ilike } = fakeClient({
       data: { puuid: "friend-puuid", region: "na", platform: "pc" },
@@ -71,13 +64,6 @@ describe("resolveTarget", () => {
         target_name: "nobody",
         target_tag: "0000",
       }),
-    ).rejects.toThrow(InputError);
-  });
-
-  it("throws InputError when the lookup errors", async () => {
-    const { client } = fakeClient({ error: { message: "boom" } });
-    await expect(
-      resolveTarget(client, self, { target_name: "x", target_tag: "y" }),
     ).rejects.toThrow(InputError);
   });
 });

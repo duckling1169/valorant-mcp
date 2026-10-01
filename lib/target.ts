@@ -7,7 +7,7 @@ import type { OperatorIdentity } from "@/lib/identity";
 // M4 slice 4: widened lookup. A tool call with target_name/target_tag acts on
 // that consented profile's identity instead of the caller's own — resolved
 // only against consented_profiles (List 2), never a live HenrikDev name/tag
-// lookup (ARCHITECTURE.md's M0 "never a fresh Riot-ID search" pattern applies
+// lookup (README.md's M0 "never a fresh Riot-ID search" pattern applies
 // here too). A name/tag that isn't a consented profile is rejected the same
 // way whether it doesn't exist or simply hasn't consented — never
 // distinguishing the two, same as compare_match's opponent-not-found.

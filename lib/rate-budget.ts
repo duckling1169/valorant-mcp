@@ -1,6 +1,6 @@
 /**
  * Client-side rate budget for HenrikDev's API (Basic key tier: 30 calls / 60s,
- * confirmed during M0 research — see ARCHITECTURE.md Decisions, 2026-07-28).
+ * confirmed during M0 research — see README.md Decisions, 2026-07-28).
  *
  * Modeled as a sliding window of dispatch timestamps: a reservation occupies a
  * slot for `windowMs`, then ages out. `reconcile()` folds HenrikDev's authoritative

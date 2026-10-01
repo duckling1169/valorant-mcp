@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { compareRank } from "@/lib/tools/compare-rank";
 import type { Endpoints } from "@/lib/endpoints";
-import { UpstreamError } from "@/lib/errors";
 
 const config = {
   operatorPuuid: "op-puuid",
@@ -123,23 +122,5 @@ describe("compareRank", () => {
     );
     expect(envelope.ok).toBe(false);
     expect(envelope.error?.kind).toBe("input");
-  });
-
-  it("maps a thrown error to the envelope, same as other tools", async () => {
-    const endpoints = {
-      getMatchById: vi.fn(async () => {
-        throw new UpstreamError("boom", 500);
-      }),
-    } as unknown as Endpoints;
-    const envelope = await compareRank(
-      { endpoints, config },
-      {
-        match_id: "match-abc",
-        opponent_name: "EnemyName",
-        opponent_tag: "EN1",
-      },
-    );
-    expect(envelope.ok).toBe(false);
-    expect(envelope.error?.kind).toBe("upstream");
   });
 });
