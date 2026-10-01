@@ -1,6 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { z } from "zod";
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import type { AuthInfo } from "@modelcontextprotocol/server";
 import { requireEnv } from "./require-env";
 import { createServiceClient } from "./supabase-service-client";
 import { regionSchema, platformSchema } from "./config";

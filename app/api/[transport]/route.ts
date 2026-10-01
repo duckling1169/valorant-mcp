@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import type { AuthInfo } from "@modelcontextprotocol/server";
 import { loadConfig } from "@/src/config";
 import { HenrikClient } from "@/src/henrik-client";
 import { Endpoints } from "@/src/endpoints";
@@ -18,11 +18,6 @@ import { verifyToken } from "@/src/verify-token";
 import { resolveIdentity } from "@/src/identity";
 import { resolveTarget } from "@/src/target";
 
-// mcp-handler expects a dynamic [transport] route segment, not a fixed folder —
-// it dispatches on the actual path itself (mcp/sse/message); `basePath` only tells
-// it what prefix to assume for URLs it constructs internally. SSE is disabled: the
-// MCP spec deprecated it (2025-03-26) and we only need streamable HTTP.
-//
 // M4: the operator identity is no longer bound at module scope — it's resolved
 // per-request from the caller's AuthInfo (verify-token.ts, identity.ts), so the
 // same deployed server can serve any consented mcp_users row. Only the
@@ -53,10 +48,10 @@ function toToolResult(envelope: unknown): {
 /** Every target-widened tool resolves the caller's own identity, then swaps
  * in a consented target's identity if target_name/target_tag were given. */
 async function resolveEffectiveIdentity(
-  extra: { authInfo?: AuthInfo },
+  extra: { http?: { authInfo?: AuthInfo } },
   target: { target_name?: string; target_tag?: string },
 ) {
-  const self = resolveIdentity(extra.authInfo);
+  const self = resolveIdentity(extra.http?.authInfo);
   return resolveTarget(serviceClient, self, target);
 }
 
@@ -67,7 +62,7 @@ const mcpHandler = createMcpHandler(
       {
         description:
           "The operator's own VALORANT account profile and current/peak competitive rank. Pass target_name/target_tag together to look up a consented friend's profile instead — rejected if that name/tag hasn't consented.",
-        inputSchema: targetInputSchema,
+        inputSchema: z.object(targetInputSchema),
       },
       async ({ target_name, target_tag }, extra) => {
         const identity = await resolveEffectiveIdentity(extra, {
@@ -84,10 +79,10 @@ const mcpHandler = createMcpHandler(
       {
         description:
           "The operator's recent competitive VALORANT matches (default 10, maximum 10). Pass target_name/target_tag together to look up a consented friend's matches instead — rejected if that name/tag hasn't consented.",
-        inputSchema: {
+        inputSchema: z.object({
           limit: z.number().int().min(1).max(10).optional(),
           ...targetInputSchema,
-        },
+        }),
       },
       async ({ limit, target_name, target_tag }, extra) => {
         const identity = await resolveEffectiveIdentity(extra, {
@@ -107,11 +102,11 @@ const mcpHandler = createMcpHandler(
       {
         description:
           "Compact detail for one of the operator's own matches (map, per-player stats, final team scores). Rejected if the operator wasn't a participant. Set include_insight for deeper per-player facets (KAST, trade rate, first bloods, multi-kills, weapon kills/accuracy, attack/defense side splits, economy buckets, plants/defuses, clutch stats) plus match-level party grouping and the operator's lobby percentile — larger response (~3.7x), opt-in. Pass target_name/target_tag together to check a consented friend's participation instead — rejected if that name/tag hasn't consented.",
-        inputSchema: {
+        inputSchema: z.object({
           match_id: z.string().min(1),
           include_insight: z.boolean().optional(),
           ...targetInputSchema,
-        },
+        }),
       },
       async ({ match_id, include_insight, target_name, target_tag }, extra) => {
         const identity = await resolveEffectiveIdentity(extra, {
@@ -131,10 +126,10 @@ const mcpHandler = createMcpHandler(
       {
         description:
           "Pooled descriptive stats across the operator's recent competitive matches: ACS/ADR/KDA/headshot % distributions with trend, survival rate, per-agent breakdown, rank/RR/peak/climb, and best/worst game (default 20 matches, maximum 50). Pass target_name/target_tag together to look up a consented friend's stats instead — rejected if that name/tag hasn't consented.",
-        inputSchema: {
+        inputSchema: z.object({
           sample_size: z.number().int().min(5).max(50).optional(),
           ...targetInputSchema,
-        },
+        }),
       },
       async ({ sample_size, target_name, target_tag }, extra) => {
         const identity = await resolveEffectiveIdentity(extra, {
@@ -160,10 +155,10 @@ const mcpHandler = createMcpHandler(
       {
         description:
           "Head-to-head stats for the operator vs. a named opponent (name/tag as shown by get_match_detail) within one shared match. Rejected if either player wasn't a participant in match_id.",
-        inputSchema: compareInputSchema,
+        inputSchema: z.object(compareInputSchema),
       },
       async ({ match_id, opponent_name, opponent_tag }, extra) => {
-        const identity = resolveIdentity(extra.authInfo);
+        const identity = resolveIdentity(extra.http?.authInfo);
         const envelope = await compareMatch(
           { endpoints, config: identity },
           { match_id, opponent_name, opponent_tag },
@@ -177,10 +172,10 @@ const mcpHandler = createMcpHandler(
       {
         description:
           "The operator's current rank/RR vs. a named opponent's current rank/RR (live, not their rank at match time). The opponent must be found via a shared match (name/tag as shown by get_match_detail) — never a fresh lookup. Rejected if either player wasn't a participant in match_id.",
-        inputSchema: compareInputSchema,
+        inputSchema: z.object(compareInputSchema),
       },
       async ({ match_id, opponent_name, opponent_tag }, extra) => {
-        const identity = resolveIdentity(extra.authInfo);
+        const identity = resolveIdentity(extra.http?.authInfo);
         const envelope = await compareRank(
           { endpoints, config: identity },
           { match_id, opponent_name, opponent_tag },
@@ -199,11 +194,11 @@ const mcpHandler = createMcpHandler(
           "If you already hold rank-history entries from a prior call in this conversation, pass their most-recent match_id as `since_match_id` to get only entries strictly newer than it — avoids re-paying tokens for entries you've already seen. " +
           "Errors (input) if since_match_id isn't found in the operator's rank history. " +
           "Pass target_name/target_tag together to look up a consented friend's rank history instead — rejected if that name/tag hasn't consented.",
-        inputSchema: {
+        inputSchema: z.object({
           limit: z.number().int().min(1).max(50).optional(),
           since_match_id: z.string().min(1).optional(),
           ...targetInputSchema,
-        },
+        }),
       },
       async ({ limit, since_match_id, target_name, target_tag }, extra) => {
         const identity = await resolveEffectiveIdentity(extra, {
@@ -226,7 +221,7 @@ const mcpHandler = createMcpHandler(
           "No live HenrikDev call and no fallback — only matches previously detailed via get_match_detail are found here, so an empty result means nothing cached matches the filters, not an error. " +
           "Coverage grows opportunistically as get_match_detail is called on more matches; it is not a full match-history index. " +
           "Returns the same lightweight shape as get_recent_matches, newest first.",
-        inputSchema: {
+        inputSchema: z.object({
           map: z.string().min(1).optional(),
           agent: z.string().min(1).optional(),
           act: z.string().min(1).optional(),
@@ -234,10 +229,10 @@ const mcpHandler = createMcpHandler(
           date_from: z.string().min(1).optional(),
           date_to: z.string().min(1).optional(),
           limit: z.number().int().min(1).max(100).optional(),
-        },
+        }),
       },
       async ({ map, agent, act, rank, date_from, date_to, limit }, extra) => {
-        const identity = resolveIdentity(extra.authInfo);
+        const identity = resolveIdentity(extra.http?.authInfo);
         const envelope = await searchMatchHistory(
           { cache, config: identity },
           { map, agent, act, rank, date_from, date_to, limit: limit ?? 20 },
@@ -247,7 +242,6 @@ const mcpHandler = createMcpHandler(
     );
   },
   { serverInfo: { name: "valorant-mcp", version: "0.0.0" } },
-  { basePath: "/api", disableSse: true },
 );
 
 // Every request must carry a bearer token issued by Supabase's OAuth 2.1 server

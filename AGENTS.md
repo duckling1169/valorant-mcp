@@ -3,7 +3,7 @@
 ## Commands
 
 - Setup: `Node.js 24.x and pnpm 10.x are required`
-- Check: `pnpm verify` (format, lint, typecheck, test)
+- Check: `pnpm verify` (format, typecheck, test)
 - Build: `pnpm build`
 
 ## Non-inferable rules
@@ -17,7 +17,6 @@
 
 ## Completion requirements
 
-- Follow the shared workflow and escalation rules in `CONTRIBUTING.md`.
 - Run the relevant checks above and report anything not run.
 - Report observable behavior changed, validation results, and unresolved risks.
 - Update an existing durable document only when the change makes it materially false. Do not create status logs or completed-work ledgers; Git history is the record.
@@ -26,4 +25,3 @@
 
 - `README.md`: purpose, setup, and normal use.
 - `ARCHITECTURE.md`: before changing boundaries, contracts, or cross-component behavior.
-- `CONTRIBUTING.md`: before non-trivial implementation or integration work; canonical shared contribution workflow.
