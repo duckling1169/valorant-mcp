@@ -54,8 +54,8 @@ export default function Home() {
         <section className="section" id="setup" aria-labelledby="setup-title">
           <h2 id="setup-title">Set it up</h2>
           <p className="sub">
-            About ten minutes. You need Vercel and Supabase accounts and a free
-            HenrikDev API key.
+            About five minutes. You need a Vercel account and a free HenrikDev
+            API key.
           </p>
           <ol className="steps">
             <li>
@@ -72,8 +72,8 @@ export default function Home() {
                 <h3>Deploy your own copy</h3>
                 <p>
                   Set <code>HENRIKDEV_API_KEY</code> and an{" "}
-                  <code>OWNER_PASSWORD</code>, add the Supabase integration, and
-                  run the SQL in <code>supabase/migrations</code>.
+                  <code>OWNER_PASSWORD</code>, and add a Neon Postgres database
+                  from the Vercel Marketplace. Tables are created on first use.
                 </p>
               </div>
               <a className="button" href={DEPLOY}>

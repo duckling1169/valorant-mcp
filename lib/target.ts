@@ -1,16 +1,14 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import type { Db } from "@/lib/db";
 import { InputError } from "@/lib/errors";
 import { regionSchema, platformSchema } from "@/lib/config";
 import type { OperatorIdentity } from "@/lib/identity";
 
-// M4 slice 4: widened lookup. A tool call with target_name/target_tag acts on
-// that consented profile's identity instead of the caller's own — resolved
-// only against consented_profiles (List 2), never a live HenrikDev name/tag
-// lookup (README.md's M0 "never a fresh Riot-ID search" pattern applies
-// here too). A name/tag that isn't a consented profile is rejected the same
-// way whether it doesn't exist or simply hasn't consented — never
-// distinguishing the two, same as compare_match's opponent-not-found.
+// A tool call with target_name/target_tag acts on that consented profile's
+// identity instead of the caller's own, resolved only against
+// consented_profiles, never a live HenrikDev lookup. A name/tag that isn't a
+// consented profile is rejected the same way whether it doesn't exist or simply
+// hasn't consented.
 
 const consentedProfileSchema = z.object({
   puuid: z.string().min(1),
@@ -27,7 +25,7 @@ export interface TargetArgs {
  * -> self, unchanged. Throws InputError if only one of target_name/target_tag
  * is given, or if the pair doesn't match a consented profile. */
 export async function resolveTarget(
-  client: SupabaseClient,
+  db: Db,
   self: OperatorIdentity,
   target: TargetArgs,
 ): Promise<OperatorIdentity> {
@@ -38,13 +36,13 @@ export async function resolveTarget(
     throw new InputError("target_name and target_tag must both be given");
   }
 
-  const { data, error } = await client
-    .from("consented_profiles")
-    .select("puuid, region, platform")
-    .ilike("name", target.target_name)
-    .ilike("tag", target.target_tag)
-    .maybeSingle();
-  if (error || !data) {
+  const rows = await db.sql`
+    select puuid, region, platform from consented_profiles
+    where lower(name) = lower(${target.target_name})
+      and lower(tag) = lower(${target.target_tag})
+    limit 1`.catch(() => []);
+  const data = rows[0];
+  if (!data) {
     throw new InputError("target is not a consented profile");
   }
   const parsed = consentedProfileSchema.safeParse(data);

@@ -1,71 +1,23 @@
-import { describe, it, expect, vi } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { MatchCache, type NewCachedMatchRow } from "@/lib/match-cache";
-import { UpstreamError, SchemaError } from "@/lib/errors";
+import { describe, expect, it } from "vitest";
+import { UpstreamError } from "@/lib/errors";
+import {
+  MatchCache,
+  type NewCachedMatchRow,
+  type NewLightCachedMatchRow,
+} from "@/lib/match-cache";
+import { testDb } from "./test-db";
 
-const OPERATOR_PUUID = "operator-1";
+const ME = "operator-1";
+const FRIEND = "operator-2";
 
-interface FakeResult {
-  data?: unknown;
-  error?: { message: string } | null;
-}
-
-interface FakeBuilder {
-  select: ReturnType<typeof vi.fn>;
-  upsert: ReturnType<typeof vi.fn>;
-  delete: ReturnType<typeof vi.fn>;
-  order: ReturnType<typeof vi.fn>;
-  limit: ReturnType<typeof vi.fn>;
-  ilike: ReturnType<typeof vi.fn>;
-  eq: ReturnType<typeof vi.fn>;
-  gte: ReturnType<typeof vi.fn>;
-  lte: ReturnType<typeof vi.fn>;
-  lt: ReturnType<typeof vi.fn>;
-  in: ReturnType<typeof vi.fn>;
-  maybeSingle: ReturnType<typeof vi.fn>;
-  then: (resolve: (r: FakeResult) => void) => Promise<void>;
-}
-
-/** Fakes supabase-js's chainable `.from(table)....` builder. Each call to
- * `.from()` pops the next queued result and returns a fresh chainable builder
- * that resolves to it when awaited — matching how MatchCache issues one
- * `.from()` chain per logical DB operation. */
-function fakeClient(results: FakeResult[]): {
-  client: SupabaseClient;
-  builders: FakeBuilder[];
-} {
-  const builders: FakeBuilder[] = [];
-  let i = 0;
-  const from = vi.fn(() => {
-    const result = results[i] ?? { data: null, error: null };
-    i++;
-    const builder = {} as FakeBuilder;
-    const chain = () => builder;
-    builder.select = vi.fn(chain);
-    builder.upsert = vi.fn(chain);
-    builder.delete = vi.fn(chain);
-    builder.order = vi.fn(chain);
-    builder.limit = vi.fn(chain);
-    builder.ilike = vi.fn(chain);
-    builder.eq = vi.fn(chain);
-    builder.gte = vi.fn(chain);
-    builder.lte = vi.fn(chain);
-    builder.lt = vi.fn(chain);
-    builder.in = vi.fn(chain);
-    builder.maybeSingle = vi.fn(chain);
-    builder.then = (resolve: (r: FakeResult) => void) =>
-      Promise.resolve(result).then(resolve);
-    builders.push(builder);
-    return builder;
-  });
-  return { client: { from } as unknown as SupabaseClient, builders };
-}
-
-const row: NewCachedMatchRow = {
-  match_id: "match-1",
+const light = (
+  n: number,
+  startedAt = "2026-07-20T00:00:00Z",
+): NewLightCachedMatchRow => ({
+  match_id: `match-${n}`,
   map: "Ascent",
   mode: "Competitive",
-  started_at: "2026-07-20T00:00:00Z",
+  started_at: startedAt,
   season_id: "season-1",
   season_short: "e11a3",
   operator_agent: "Jett",
@@ -76,170 +28,76 @@ const row: NewCachedMatchRow = {
   operator_deaths: 15,
   operator_assists: 5,
   operator_won: true,
-  has_insight: false,
-  detail: { match_id: "match-1" },
-};
-
-describe("MatchCache.upsert", () => {
-  it("scopes both the upsert row and eviction to operatorPuuid", async () => {
-    const { client, builders } = fakeClient([
-      { error: null }, // upsert
-      { error: null }, // age-based delete
-      { data: [{ match_id: "match-1" }], error: null }, // list for count eviction
-    ]);
-    await new MatchCache(client).upsert(OPERATOR_PUUID, row);
-    const upsertBuilder = builders[0];
-    if (!upsertBuilder) throw new Error("expected an upsert builder call");
-    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ operator_puuid: OPERATOR_PUUID }),
-    );
-    const ageDeleteBuilder = builders[1];
-    if (!ageDeleteBuilder) throw new Error("expected an age-delete builder");
-    expect(ageDeleteBuilder.eq).toHaveBeenCalledWith(
-      "operator_puuid",
-      OPERATOR_PUUID,
-    );
-  });
-
-  it("evicts rows beyond the 100-row retention bound, scoped to operatorPuuid", async () => {
-    const rows = Array.from({ length: 105 }, (_, n) => ({
-      match_id: `match-${n}`,
-    }));
-    const { client, builders } = fakeClient([
-      { error: null }, // upsert
-      { error: null }, // age-based delete
-      { data: rows, error: null }, // list
-      { error: null }, // count-based delete
-    ]);
-    await new MatchCache(client).upsert(OPERATOR_PUUID, row);
-    const countDeleteBuilder = builders[3];
-    if (!countDeleteBuilder) throw new Error("expected a 4th builder call");
-    expect(countDeleteBuilder.eq).toHaveBeenCalledWith(
-      "operator_puuid",
-      OPERATOR_PUUID,
-    );
-    expect(countDeleteBuilder.in).toHaveBeenCalledWith(
-      "match_id",
-      rows.slice(100).map((r) => r.match_id),
-    );
-  });
-
-  it("throws UpstreamError when the insert fails", async () => {
-    const { client } = fakeClient([{ error: { message: "boom" } }]);
-    await expect(
-      new MatchCache(client).upsert(OPERATOR_PUUID, row),
-    ).rejects.toThrow(UpstreamError);
-  });
 });
 
-describe("MatchCache.search", () => {
-  it("returns validated rows, scoped to operatorPuuid", async () => {
-    const cachedRow = {
-      match_id: "match-1",
-      map: "Ascent",
-      mode: "Competitive",
-      started_at: "2026-07-20T00:00:00Z",
-      season_short: "e11a3",
-      operator_agent: "Jett",
-      operator_tier_id: 10,
-      operator_tier_name: "Silver 2",
-      operator_score: 250,
-      operator_kills: 20,
-      operator_deaths: 15,
-      operator_assists: 5,
-      operator_won: true,
-    };
-    const { client, builders } = fakeClient([
-      { data: [cachedRow], error: null },
-    ]);
-    const result = await new MatchCache(client).search(OPERATOR_PUUID, {
-      limit: 20,
-    });
-    expect(result).toEqual([cachedRow]);
-    const builder = builders[0];
-    if (!builder) throw new Error("expected a builder call");
-    expect(builder.eq).toHaveBeenCalledWith("operator_puuid", OPERATOR_PUUID);
-  });
-
-  it("throws SchemaError when a row doesn't match the expected shape", async () => {
-    const { client } = fakeClient([
-      { data: [{ match_id: "match-1" }], error: null },
-    ]);
-    await expect(
-      new MatchCache(client).search(OPERATOR_PUUID, { limit: 20 }),
-    ).rejects.toThrow(SchemaError);
-  });
+const full = (n: number): NewCachedMatchRow => ({
+  ...light(n),
+  has_insight: true,
+  detail: { match_id: `match-${n}` },
 });
 
-const lightRow = {
-  match_id: "match-2",
-  map: "Bind",
-  mode: "Competitive",
-  started_at: "2026-07-19T00:00:00Z",
-  season_id: "season-1",
-  season_short: "e11a3",
-  operator_agent: "Omen",
-  operator_tier_id: 10,
-  operator_tier_name: "Silver 2",
-  operator_score: 180,
-  operator_kills: 12,
-  operator_deaths: 18,
-  operator_assists: 8,
-  operator_won: false,
-};
-
-describe("MatchCache.insertLightMatches", () => {
-  it("upserts with operator_puuid + ignoreDuplicates, evicts once for the batch", async () => {
-    const { client, builders } = fakeClient([
-      { error: null }, // batch upsert
-      { error: null }, // age-based delete
-      { data: [{ match_id: "match-2" }], error: null }, // list for count eviction
-    ]);
-    await new MatchCache(client).insertLightMatches(OPERATOR_PUUID, [lightRow]);
-    expect(client.from).toHaveBeenCalledTimes(3);
-    const upsertBuilder = builders[0];
-    if (!upsertBuilder) throw new Error("expected an upsert builder call");
-    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          match_id: "match-2",
-          operator_puuid: OPERATOR_PUUID,
-          has_insight: false,
-          detail: null,
-        }),
-      ],
-      { onConflict: "operator_puuid,match_id", ignoreDuplicates: true },
-    );
-  });
-});
-
-describe("MatchCache.getDetail", () => {
-  it("returns detail + has_insight when a row exists", async () => {
-    const { client, builders } = fakeClient([
-      {
-        data: { detail: { match_id: "match-1" }, has_insight: true },
-        error: null,
-      },
-    ]);
-    const result = await new MatchCache(client).getDetail(
-      OPERATOR_PUUID,
-      "match-1",
-    );
-    expect(result).toEqual({
+describe("MatchCache", () => {
+  it("serves a full row back only to the profile that wrote it", async () => {
+    const cache = new MatchCache(await testDb());
+    await cache.upsert(ME, full(1));
+    expect(await cache.getDetail(ME, "match-1")).toEqual({
       detail: { match_id: "match-1" },
       has_insight: true,
     });
-    const builder = builders[0];
-    if (!builder) throw new Error("expected a builder call");
-    expect(builder.eq).toHaveBeenCalledWith("operator_puuid", OPERATOR_PUUID);
+    expect(await cache.getDetail(FRIEND, "match-1")).toBeNull();
   });
 
-  it("returns null when no row exists", async () => {
-    const { client } = fakeClient([{ data: null, error: null }]);
-    const result = await new MatchCache(client).getDetail(
-      OPERATOR_PUUID,
-      "match-1",
+  it("never lets a light row overwrite a cached match", async () => {
+    const cache = new MatchCache(await testDb());
+    await cache.upsert(ME, full(1));
+    await cache.insertLightMatches(ME, [light(1), light(2)]);
+    expect(await cache.getDetail(ME, "match-1")).toMatchObject({
+      has_insight: true,
+    });
+    expect(await cache.getDetail(ME, "match-2")).toEqual({
+      detail: null,
+      has_insight: false,
+    });
+  });
+
+  it("keeps the newest 100 rows per profile without touching others", async () => {
+    const db = await testDb();
+    const cache = new MatchCache(db);
+    await cache.insertLightMatches(FRIEND, [light(0)]);
+    for (let n = 1; n <= 105; n++) await cache.upsert(ME, full(n));
+    const counts = await db.query(
+      "select operator_puuid, count(*)::int as n from cached_matches group by 1 order by 1",
     );
-    expect(result).toBeNull();
+    expect(counts).toEqual([
+      { operator_puuid: ME, n: 100 },
+      { operator_puuid: FRIEND, n: 1 },
+    ]);
+    expect(await cache.getDetail(ME, "match-1")).toBeNull();
+    expect(await cache.getDetail(ME, "match-105")).not.toBeNull();
+  });
+
+  it("searches one profile's matches with case-insensitive filters", async () => {
+    const cache = new MatchCache(await testDb());
+    await cache.insertLightMatches(ME, [
+      light(1, "2026-07-01T00:00:00Z"),
+      { ...light(2, "2026-07-02T00:00:00Z"), map: "Bind" },
+      light(3, "2026-07-03T00:00:00Z"),
+    ]);
+    await cache.insertLightMatches(FRIEND, [light(9)]);
+
+    const ascent = await cache.search(ME, { map: "ASCENT", limit: 20 });
+    expect(ascent.map((r) => r.match_id)).toEqual(["match-3", "match-1"]);
+    expect(ascent[0]?.started_at).toBe("2026-07-03T00:00:00.000Z");
+
+    const wildcard = await cache.search(ME, { map: "%", limit: 20 });
+    expect(wildcard).toEqual([]);
+  });
+
+  it("reports database failures as UpstreamError (callers fail open)", async () => {
+    const db = await testDb();
+    await db.pg.query("drop table cached_matches");
+    await expect(new MatchCache(db).upsert(ME, full(1))).rejects.toThrow(
+      UpstreamError,
+    );
   });
 });

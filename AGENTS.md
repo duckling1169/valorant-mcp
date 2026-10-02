@@ -16,4 +16,5 @@ See `README.md` for purpose and architecture.
 - Connector keys, API keys, player identities and match data are sensitive: never log or commit
   them, and never put HenrikDev response bodies or player data in error messages.
 - Strict TypeScript: no `any` or unchecked casts; validate external data with zod at boundaries.
-- Schema changes go in a new file under `supabase/migrations/`.
+- The schema lives in `lib/db.ts` (`create table if not exists`, applied on first use).
+- Database tests run real SQL on in-memory Postgres (`tests/test-db.ts`, PGlite).

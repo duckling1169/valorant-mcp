@@ -1,72 +1,18 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import type { Db } from "@/lib/db";
 import { SchemaError, UpstreamError } from "@/lib/errors";
 
-// Bounded write-through cache for get_match_detail (README.md, 2026-07-28
-// "bounded cache" decision). This first M3 slice: only get_match_detail writes
-// (search_match_history only reads); retention is two independent caps (100
-// rows, 90 days by cached_at) enforced synchronously after every write, not by
-// a scheduled job. Slice 2 adds getDetail for get_match_detail's read-through:
-// has_insight makes explicit whether a row's stored `detail` was written with
-// include_insight, since a request for insight can only be satisfied by a row
-// that has it (match-detail.ts's cache-hit rule).
-//
-// Slice 3 widens write-through to get_recent_matches/get_player_stats via
-// insertLightMatches: a "light" row from stored-matches (operator's own stat
-// line only, no full player roster) can never be a valid MatchDetail, so it
-// never overwrites an existing row (light or full) — it only fills gaps
-// (`ON CONFLICT (operator_puuid, match_id) DO NOTHING`, via ignoreDuplicates).
-// Eviction stays uniform cached_at-FIFO across light and full rows (no
-// two-tier priority).
-//
-// M4 slice 2: every method takes operatorPuuid, and the table's primary key
-// is (operator_puuid, match_id), not match_id alone — a lookup scoped to one
-// operator can only ever find rows that operator itself wrote. This is what
-// makes the read-through in match-detail.ts safe for a second real user:
-// without it, a cache hit would skip that request's own participant check
-// (README.md's M4 slice 2 decision). Retention (100 rows / 90 days) is
-// also enforced per-operator now, not cache-wide — one operator's usage must
-// never evict another's rows.
+// Bounded, per-profile match cache. get_match_detail writes full rows (with
+// has_insight recording whether `detail` includes insight); get_recent_matches and
+// get_player_stats write "light" rows (the operator's own stat line, detail null),
+// which only fill gaps and never overwrite. Every method is scoped to operatorPuuid,
+// and the primary key is (operator_puuid, match_id), so a profile can only read rows
+// it wrote: a cache hit can never skip that request's own participant check.
+// Retention (100 rows, 90 days, oldest cached first) is enforced per profile after
+// every write. Callers treat every error as a cache miss (fail-open).
 
 const RETENTION_MAX_ROWS = 100;
 const RETENTION_MAX_AGE_DAYS = 90;
-const TABLE = "cached_matches";
-
-/** Every Postgres error from this class is fail-open at the caller (write-
- * through/read-through swallow it) — this just standardizes "throw
- * UpstreamError with this message" so each call site doesn't hand-roll it. */
-function assertNoError(
-  error: { message: string } | null,
-  message: string,
-): void {
-  if (error) throw new UpstreamError(`${message}: ${error.message}`);
-}
-
-export interface NewCachedMatchRow {
-  match_id: string;
-  map: string | null;
-  mode: string | null;
-  started_at: string;
-  season_id: string | null;
-  season_short: string | null;
-  operator_agent: string | null;
-  operator_tier_id: number | null;
-  operator_tier_name: string | null;
-  operator_score: number | null;
-  operator_kills: number | null;
-  operator_deaths: number | null;
-  operator_assists: number | null;
-  operator_won: boolean | null;
-  has_insight: boolean;
-  // Verbatim get_match_detail response — served back on a read-through
-  // cache hit (match-detail.ts validates it against MatchDetail's shape).
-  detail: unknown;
-}
-
-export interface CachedDetail {
-  detail: unknown;
-  has_insight: boolean;
-}
 
 export interface NewLightCachedMatchRow {
   match_id: string;
@@ -85,11 +31,26 @@ export interface NewLightCachedMatchRow {
   operator_won: boolean | null;
 }
 
+export interface NewCachedMatchRow extends NewLightCachedMatchRow {
+  has_insight: boolean;
+  // Verbatim get_match_detail response, served back on a cache hit.
+  detail: unknown;
+}
+
+export interface CachedDetail {
+  detail: unknown;
+  has_insight: boolean;
+}
+
+const iso = z
+  .union([z.string(), z.date()])
+  .transform((v) => (typeof v === "string" ? v : v.toISOString()));
+
 const cachedMatchRowSchema = z.object({
   match_id: z.string(),
   map: z.string().nullable(),
   mode: z.string().nullable(),
-  started_at: z.string(),
+  started_at: iso,
   season_short: z.string().nullable(),
   operator_agent: z.string().nullable(),
   operator_tier_id: z.number().nullable(),
@@ -112,133 +73,148 @@ export interface SearchMatchHistoryFilters {
   limit: number;
 }
 
-export class MatchCache {
-  constructor(private readonly client: SupabaseClient) {}
+/** Runs a query, converting any database error into UpstreamError. */
+async function run<T>(what: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new UpstreamError(`${what}: ${message}`);
+  }
+}
 
-  /** Upsert one row, then enforce retention. Throws on any Postgres error —
-   * callers that want write-through to be best-effort (get_match_detail) must
-   * catch and swallow, per README.md's fail-open cache-write decision. */
+export class MatchCache {
+  constructor(private readonly db: Db) {}
+
+  /** Insert or replace one full row, then enforce retention. */
   async upsert(operatorPuuid: string, row: NewCachedMatchRow): Promise<void> {
-    const { error } = await this.client.from(TABLE).upsert({
-      ...row,
-      operator_puuid: operatorPuuid,
-      cached_at: new Date().toISOString(),
-    });
-    assertNoError(error, "cache upsert failed");
+    const r = row;
+    await run(
+      "cache upsert failed",
+      () => this.db.sql`
+        insert into cached_matches (
+          operator_puuid, match_id, map, mode, started_at, season_id, season_short,
+          operator_agent, operator_tier_id, operator_tier_name, operator_score,
+          operator_kills, operator_deaths, operator_assists, operator_won,
+          detail, has_insight, cached_at
+        ) values (
+          ${operatorPuuid}, ${r.match_id}, ${r.map}, ${r.mode}, ${r.started_at},
+          ${r.season_id}, ${r.season_short}, ${r.operator_agent}, ${r.operator_tier_id},
+          ${r.operator_tier_name}, ${r.operator_score}, ${r.operator_kills},
+          ${r.operator_deaths}, ${r.operator_assists}, ${r.operator_won},
+          ${JSON.stringify(r.detail)}::jsonb, ${r.has_insight}, now()
+        )
+        on conflict (operator_puuid, match_id) do update set
+          map = excluded.map, mode = excluded.mode, started_at = excluded.started_at,
+          season_id = excluded.season_id, season_short = excluded.season_short,
+          operator_agent = excluded.operator_agent,
+          operator_tier_id = excluded.operator_tier_id,
+          operator_tier_name = excluded.operator_tier_name,
+          operator_score = excluded.operator_score,
+          operator_kills = excluded.operator_kills,
+          operator_deaths = excluded.operator_deaths,
+          operator_assists = excluded.operator_assists,
+          operator_won = excluded.operator_won, detail = excluded.detail,
+          has_insight = excluded.has_insight, cached_at = excluded.cached_at`,
+    );
     await this.evict(operatorPuuid);
   }
 
-  /** Look up one row's stored detail + insight flag by match_id, scoped to
-   * operatorPuuid (the composite primary key — see the slice-2 note above).
-   * Returns null on no row; throws on any Postgres error — callers that want
-   * read-through to be best-effort (get_match_detail) must catch and treat as
-   * a miss, per README.md's fail-open cache decision. */
+  /** One row's stored detail and insight flag, or null when not cached. */
   async getDetail(
     operatorPuuid: string,
     matchId: string,
   ): Promise<CachedDetail | null> {
-    const { data, error } = await this.client
-      .from(TABLE)
-      .select("detail, has_insight")
-      .eq("operator_puuid", operatorPuuid)
-      .eq("match_id", matchId)
-      .maybeSingle();
-    assertNoError(error, "cache detail lookup failed");
-    if (!data) return null;
+    const rows = await run(
+      "cache detail lookup failed",
+      () => this.db.sql`
+        select detail, has_insight from cached_matches
+        where operator_puuid = ${operatorPuuid} and match_id = ${matchId}`,
+    );
+    const row = rows[0];
+    if (!row) return null;
     return z
       .object({ detail: z.unknown(), has_insight: z.boolean() })
-      .parse(data);
+      .parse(row);
   }
 
-  /** Batch-insert light rows (from stored-matches) for one operator, skipping
-   * any (operatorPuuid, match_id) that already has a row — light data never
-   * overwrites, light or full (README.md's slice-3 decision). One
-   * eviction pass for the whole batch, not one per row. Throws on any
-   * Postgres error — callers (get_recent_matches/get_player_stats) must catch
-   * and swallow, same fail-open contract as upsert(). */
+  /** Inserts light rows in one statement, skipping matches already cached. */
   async insertLightMatches(
     operatorPuuid: string,
     rows: NewLightCachedMatchRow[],
   ): Promise<void> {
     if (rows.length === 0) return;
     const cachedAt = new Date().toISOString();
-    const { error } = await this.client.from(TABLE).upsert(
-      rows.map((row) => ({
-        ...row,
-        operator_puuid: operatorPuuid,
-        has_insight: false,
-        detail: null,
-        cached_at: cachedAt,
-      })),
-      { onConflict: "operator_puuid,match_id", ignoreDuplicates: true },
+    const records = rows.map((row) => ({
+      ...row,
+      operator_puuid: operatorPuuid,
+      has_insight: false,
+      detail: null,
+      cached_at: cachedAt,
+    }));
+    await run(
+      "cache light-insert failed",
+      () => this.db.sql`
+        insert into cached_matches
+        select * from json_populate_recordset(null::cached_matches, ${JSON.stringify(records)}::json)
+        on conflict (operator_puuid, match_id) do nothing`,
     );
-    assertNoError(error, "cache light-insert failed");
     await this.evict(operatorPuuid);
   }
 
   private async evict(operatorPuuid: string): Promise<void> {
-    const cutoff = new Date(
-      Date.now() - RETENTION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
-    ).toISOString();
-    const { error: ageError } = await this.client
-      .from(TABLE)
-      .delete()
-      .eq("operator_puuid", operatorPuuid)
-      .lt("cached_at", cutoff);
-    assertNoError(ageError, "cache age eviction failed");
-
-    const { data, error: listError } = await this.client
-      .from(TABLE)
-      .select("match_id")
-      .eq("operator_puuid", operatorPuuid)
-      .order("cached_at", { ascending: false });
-    assertNoError(listError, "cache eviction list failed");
-
-    const rows = z.array(z.object({ match_id: z.string() })).parse(data ?? []);
-    const excess = rows.slice(RETENTION_MAX_ROWS).map((r) => r.match_id);
-    if (excess.length > 0) {
-      const { error: deleteError } = await this.client
-        .from(TABLE)
-        .delete()
-        .eq("operator_puuid", operatorPuuid)
-        .in("match_id", excess);
-      assertNoError(deleteError, "cache row-count eviction failed");
-    }
+    await run(
+      "cache eviction failed",
+      () => this.db.sql`
+        delete from cached_matches
+        where operator_puuid = ${operatorPuuid}
+          and (
+            cached_at < now() - make_interval(days => ${RETENTION_MAX_AGE_DAYS})
+            or match_id in (
+              select match_id from cached_matches
+              where operator_puuid = ${operatorPuuid}
+              order by cached_at desc
+              offset ${RETENTION_MAX_ROWS}
+            )
+          )`,
+    );
   }
 
   async search(
     operatorPuuid: string,
     filters: SearchMatchHistoryFilters,
   ): Promise<CachedMatchRow[]> {
-    let query = this.client
-      .from(TABLE)
-      .select(
-        "match_id, map, mode, started_at, season_short, operator_agent, operator_tier_id, operator_tier_name, operator_score, operator_kills, operator_deaths, operator_assists, operator_won",
-      )
-      .eq("operator_puuid", operatorPuuid)
-      .order("started_at", { ascending: false })
-      .limit(filters.limit);
+    const where = ["operator_puuid = $1"];
+    const params: unknown[] = [operatorPuuid];
+    const add = (clause: string, value: unknown) => {
+      params.push(value);
+      where.push(clause.replaceAll("?", `$${params.length}`));
+    };
+    // Case-insensitive exact matches (no LIKE, so % and _ are literal).
+    if (filters.map !== undefined) add("lower(map) = lower(?)", filters.map);
+    if (filters.agent !== undefined)
+      add("lower(operator_agent) = lower(?)", filters.agent);
+    if (filters.act !== undefined) add("season_short = ?", filters.act);
+    if (filters.rank !== undefined)
+      add("lower(operator_tier_name) = lower(?)", filters.rank);
+    if (filters.date_from !== undefined)
+      add("started_at >= ?", filters.date_from);
+    if (filters.date_to !== undefined) add("started_at <= ?", filters.date_to);
+    params.push(filters.limit);
 
-    if (filters.map !== undefined) query = query.ilike("map", filters.map);
-    if (filters.agent !== undefined) {
-      query = query.ilike("operator_agent", filters.agent);
-    }
-    if (filters.act !== undefined)
-      query = query.eq("season_short", filters.act);
-    if (filters.rank !== undefined) {
-      query = query.ilike("operator_tier_name", filters.rank);
-    }
-    if (filters.date_from !== undefined) {
-      query = query.gte("started_at", filters.date_from);
-    }
-    if (filters.date_to !== undefined) {
-      query = query.lte("started_at", filters.date_to);
-    }
-
-    const { data, error } = await query;
-    assertNoError(error, "cache search failed");
-
-    const result = z.array(cachedMatchRowSchema).safeParse(data ?? []);
+    const rows = await run("cache search failed", () =>
+      this.db.query(
+        `select match_id, map, mode, started_at, season_short, operator_agent,
+           operator_tier_id, operator_tier_name, operator_score, operator_kills,
+           operator_deaths, operator_assists, operator_won
+         from cached_matches
+         where ${where.join(" and ")}
+         order by started_at desc
+         limit $${params.length}`,
+        params,
+      ),
+    );
+    const result = z.array(cachedMatchRowSchema).safeParse(rows);
     if (!result.success) {
       throw new SchemaError(
         "cached_matches row did not match the expected shape",

@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { platformSchema, regionSchema } from "@/lib/config";
 import type { Endpoints } from "@/lib/endpoints";
+import type { Db } from "@/lib/db";
 import { InputError, UpstreamError } from "@/lib/errors";
 import type { OperatorIdentity } from "@/lib/identity";
 
@@ -15,8 +15,6 @@ export const hashKey = (key: string) =>
   createHash("sha256").update(key).digest("hex");
 
 const newSecret = (bytes: number) => randomBytes(bytes).toString("base64url");
-
-type Db = SupabaseClient;
 
 export interface Profile {
   puuid: string;
@@ -46,34 +44,48 @@ export async function resolveRiotId(
   };
 }
 
-function check(error: { message: string } | null, what: string) {
-  if (error) throw new UpstreamError(`${what}: ${error.message}`);
+/** Runs a query, converting any database error into UpstreamError. */
+async function run<T>(what: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new UpstreamError(`${what}: ${message}`);
+  }
 }
+
+const iso = z
+  .union([z.string(), z.date()])
+  .transform((v) => (typeof v === "string" ? v : v.toISOString()));
 
 /** Records consent for `profile` and mints a connector key for it. */
 export async function createConnection(
   db: Db,
   profile: Profile,
 ): Promise<string> {
-  const { error: profileError } = await db
-    .from("consented_profiles")
-    .upsert(profile);
-  check(profileError, "failed to save profile");
-
+  const { puuid, name, tag, region, platform } = profile;
   const key = newSecret(32);
-  const { error } = await db
-    .from("connections")
-    .insert({ key_hash: hashKey(key), puuid: profile.puuid });
-  check(error, "failed to save connection");
+  await run(
+    "failed to save connection",
+    () => db.sql`
+      with profile as (
+        insert into consented_profiles (puuid, name, tag, region, platform)
+        values (${puuid}, ${name}, ${tag}, ${region}, ${platform})
+        on conflict (puuid) do update
+        set name = excluded.name, tag = excluded.tag,
+            region = excluded.region, platform = excluded.platform
+        returning puuid
+      )
+      insert into connections (key_hash, puuid)
+      select ${hashKey(key)}, puuid from profile`,
+  );
   return key;
 }
 
 const identityRowSchema = z.object({
-  consented_profiles: z.object({
-    puuid: z.string().min(1),
-    region: regionSchema,
-    platform: platformSchema,
-  }),
+  puuid: z.string().min(1),
+  region: regionSchema,
+  platform: platformSchema,
 });
 
 /** The identity a connector key acts as, or null if the key is unknown. */
@@ -81,26 +93,17 @@ export async function identityForKey(
   db: Db,
   key: string,
 ): Promise<OperatorIdentity | null> {
-  const keyHash = hashKey(key);
-  const { data } = await db
-    .from("connections")
-    .select("consented_profiles (puuid, region, platform)")
-    .eq("key_hash", keyHash)
-    .maybeSingle();
-  const row = identityRowSchema.safeParse(data);
+  const rows = await db.sql`
+    update connections c set last_used_at = now()
+    from consented_profiles p
+    where c.key_hash = ${hashKey(key)} and p.puuid = c.puuid
+    returning p.puuid, p.region, p.platform`;
+  const row = identityRowSchema.safeParse(rows[0]);
   if (!row.success) return null;
-
-  void db
-    .from("connections")
-    .update({ last_used_at: new Date().toISOString() })
-    .eq("key_hash", keyHash)
-    .then(() => {});
-
-  const p = row.data.consented_profiles;
   return {
-    operatorPuuid: p.puuid,
-    operatorRegion: p.region,
-    operatorPlatform: p.platform,
+    operatorPuuid: row.data.puuid,
+    operatorRegion: row.data.region,
+    operatorPlatform: row.data.platform,
   };
 }
 
@@ -112,40 +115,52 @@ export interface ConnectionSummary {
   lastUsedAt: string | null;
 }
 
+const summarySchema = z.object({
+  key_hash: z.string(),
+  name: z.string(),
+  tag: z.string(),
+  created_at: iso,
+  last_used_at: iso.nullable(),
+});
+
 export async function listConnections(db: Db): Promise<ConnectionSummary[]> {
-  const { data, error } = await db
-    .from("connections")
-    .select(
-      "key_hash, created_at, last_used_at, consented_profiles (name, tag)",
-    )
-    .order("created_at");
-  check(error, "failed to list connections");
-  return (data ?? []).map((r) => {
-    const p = r.consented_profiles as unknown as { name: string; tag: string };
-    return {
-      keyHash: r.key_hash as string,
-      name: p.name,
-      tag: p.tag,
-      createdAt: r.created_at as string,
-      lastUsedAt: r.last_used_at as string | null,
-    };
-  });
+  const rows = await run(
+    "failed to list connections",
+    () => db.sql`
+      select c.key_hash, p.name, p.tag, c.created_at, c.last_used_at
+      from connections c join consented_profiles p on p.puuid = c.puuid
+      order by c.created_at`,
+  );
+  return z
+    .array(summarySchema)
+    .parse(rows)
+    .map((r) => ({
+      keyHash: r.key_hash,
+      name: r.name,
+      tag: r.tag,
+      createdAt: r.created_at,
+      lastUsedAt: r.last_used_at,
+    }));
 }
 
 export async function revokeConnection(db: Db, keyHash: string) {
-  const { error } = await db
-    .from("connections")
-    .delete()
-    .eq("key_hash", keyHash);
-  check(error, "failed to revoke connection");
+  await run(
+    "failed to revoke connection",
+    () => db.sql`delete from connections where key_hash = ${keyHash}`,
+  );
 }
 
 // Invites: the owner names a friend's Riot ID; the friend consents on /claim.
 
 export async function createInvite(db: Db, profile: Profile): Promise<string> {
   const code = newSecret(12);
-  const { error } = await db.from("invites").insert({ code, ...profile });
-  check(error, "failed to save invite");
+  const { puuid, name, tag, region, platform } = profile;
+  await run(
+    "failed to save invite",
+    () => db.sql`
+      insert into invites (code, puuid, name, tag, region, platform)
+      values (${code}, ${puuid}, ${name}, ${tag}, ${region}, ${platform})`,
+  );
   return code;
 }
 
@@ -156,39 +171,40 @@ const inviteSchema = z.object({
   tag: z.string(),
   region: z.string(),
   platform: z.string(),
-  created_at: z.string(),
+  created_at: iso,
 });
 export type Invite = z.infer<typeof inviteSchema>;
 
 export async function getInvite(db: Db, code: string): Promise<Invite | null> {
-  const { data } = await db
-    .from("invites")
-    .select("*")
-    .eq("code", code)
-    .maybeSingle();
-  const invite = inviteSchema.safeParse(data);
+  const rows = await db.sql`select * from invites where code = ${code}`;
+  const invite = inviteSchema.safeParse(rows[0]);
   return invite.success ? invite.data : null;
 }
 
 export async function listInvites(db: Db): Promise<Invite[]> {
-  const { data, error } = await db
-    .from("invites")
-    .select("*")
-    .order("created_at");
-  check(error, "failed to list invites");
-  return z.array(inviteSchema).parse(data ?? []);
+  const rows = await run(
+    "failed to list invites",
+    () => db.sql`select * from invites order by created_at`,
+  );
+  return z.array(inviteSchema).parse(rows);
 }
 
 export async function deleteInvite(db: Db, code: string) {
-  const { error } = await db.from("invites").delete().eq("code", code);
-  check(error, "failed to delete invite");
+  await run(
+    "failed to delete invite",
+    () => db.sql`delete from invites where code = ${code}`,
+  );
 }
 
-/** Consent: turns a single-use invite into the friend's own connector key. */
+/** Consent: turns a single-use invite into the friend's own connector key. The
+ * delete-and-return is one statement, so two simultaneous claims can't both win. */
 export async function claimInvite(db: Db, code: string): Promise<string> {
-  const invite = await getInvite(db, code);
-  if (!invite) throw new InputError("This invite is invalid or already used.");
-  await deleteInvite(db, code);
-  const { puuid, name, tag, region, platform } = invite;
+  const rows =
+    await db.sql`delete from invites where code = ${code} returning *`;
+  const invite = inviteSchema.safeParse(rows[0]);
+  if (!invite.success) {
+    throw new InputError("This invite is invalid or already used.");
+  }
+  const { puuid, name, tag, region, platform } = invite.data;
   return createConnection(db, { puuid, name, tag, region, platform });
 }

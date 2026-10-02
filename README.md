@@ -5,7 +5,9 @@ through [HenrikDev's API](https://docs.henrikdev.xyz).
 
 ## Use
 
-1. Deploy your own copy (Vercel + Supabase) and set the env vars in `.env.example`.
+1. Deploy your own copy on Vercel, add a Neon Postgres database from the Vercel Marketplace
+   (sets `DATABASE_URL`; tables are created on first use), and set the env vars in
+   `.env.example`.
 2. Open `/setup`, unlock it with `OWNER_PASSWORD`, and enter your Riot ID. You get a connector
    URL, shown once.
 3. Add that URL as a custom connector (MCP server) in Claude, ChatGPT, or any MCP client.
@@ -41,8 +43,8 @@ accepted an invite.
   `retryAfterMs`), `upstream`, `schema` or `input`. Messages never include HenrikDev response
   bodies or player data.
 
-Code lives in `lib/` (`lib/tools/` has one module per tool), routes in `app/`, schema in
-`supabase/migrations/`.
+Code lives in `lib/` (`lib/tools/` has one module per tool), routes in `app/`, and the schema
+in `lib/db.ts`.
 
 ## Develop
 

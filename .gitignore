@@ -26,4 +26,7 @@ next-env.d.ts
 
 .vercel
 .env*
-supabase/.temp/
+
+# Provider agent skills installed by the Vercel CLI
+.agents/
+skills-lock.json
